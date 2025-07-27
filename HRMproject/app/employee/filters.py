@@ -6,10 +6,14 @@ from django.db.models.functions import Concat
 class EmployeeFilter(filters.FilterSet):
     name = filters.CharFilter(method='filter_name', label="Search by name")
     id = filters.NumberFilter(field_name='id', lookup_expr='exact')
+    position = filters.NumberFilter(field_name='position__id', lookup_expr='exact')
+    division = filters.NumberFilter(field_name='division__id', lookup_expr='exact')
+    qualification = filters.NumberFilter(field_name='qualification__id', lookup_expr='exact')
+    department = filters.NumberFilter(field_name='department__id', lookup_expr='exact')
 
     class Meta:
         model = Employee
-        fields = ['name', 'id']
+        fields = ['name', 'id', 'position', 'division', 'qualification','department']
 
     def filter_name(self, queryset, name, value):
         # Tạo một annotation tên đầy đủ

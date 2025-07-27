@@ -42,6 +42,16 @@ class ListEmployeeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Employee
         fields = ["id",'first_name',"last_name","phone_number","email","photo"]
+class NameEmployeeSerializer(serializers.ModelSerializer):
+    # def to_representation(self, instance):
+    #         data = super().to_representation(instance)
+
+    #         data['photo'] = instance.photo.url if instance.photo else ''
+
+    #         return data
+    class Meta:
+        model = Employee
+        fields = ["id",'first_name',"last_name"]
 
 class ContractSerializer(serializers.ModelSerializer):
     class Meta:

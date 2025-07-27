@@ -83,6 +83,10 @@ class EmployeeViewset(viewsets.ViewSet,generics.RetrieveAPIView,generics.CreateA
         year = request.query_params.get("year")
 
         if not month or not year:
+            # timesheets = Timesheet.objects.filter(
+            # employee=employee,)
+            # serializer = TimeSheetSerializers(timesheets, many=True)
+            # return Response(serializer.data, status=status.HTTP_200_OK)
             return Response({"error": "không có tháng và năm ."}, status=status.HTTP_400_BAD_REQUEST)
         self.check_object_permissions(request, employee)
         try:

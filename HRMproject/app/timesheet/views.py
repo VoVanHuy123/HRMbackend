@@ -4,24 +4,72 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import viewsets, generics,permissions,status
-from .models import Timesheet,CommendationDiscipline,LeaveRequest
-from .serializers import TimeSheetSerializers,CommendationDisciplineSerializers,LeaveRequestSerializers
+
+# model
+from .models import (
+    Timesheet,
+    CommendationDiscipline,
+    LeaveRequest,
+    WorkType,
+    Overtime,
+    SalaryAdvance,
+    AllowanceType,
+)
+from employee.models import (
+    EmployeeAllowance
+)
+# serializers
+from .serializers import *
+# permissions
 from user.permisions import IsAdminOrOwner,IsAdmin
-from .filters import LeaveRequestFilter
+# filters
+from .filters import *
 from django_filters.rest_framework import DjangoFilterBackend
+# paginations
+from .paginators import TimesheetPagination
 # Create your views here.
-class TimeSheetViewset(viewsets.ViewSet):
+class TimeSheetViewset(viewsets.ViewSet,generics.ListAPIView,generics.UpdateAPIView):
     queryset=Timesheet.objects.all()
     serializer_class = TimeSheetSerializers
     permission_classes = [IsAdminOrOwner]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = TimesheetFilter
+    pagination_class = TimesheetPagination
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return Timesheet.objects.none()
+        user = self.request.user
+        if hasattr(user, 'role') and user.role == "Admin":
+            return Timesheet.objects.all()
+        return Timesheet.objects.filter(employee=user.employee)
+    def get_serializer_class(self):
+        if self.action in ["update","partial_update"]:
+            return UpdateTimeSheetSerializers
+        return super().get_serializer_class()
+    def filter_queryset(self, queryset):
+        user = self.request.user
+        params = self.request.query_params
 
+        if not hasattr(user, 'role') or user.role != "Admin":
+            if 'employee_id' in params or 'name' in params:
+                raise PermissionDenied("Bạn không có quyền lọc theo nhân viên.")
+        return super().filter_queryset(queryset)
+    def get_permissions(self):
+        if(self.action in ["list","update","partial_update"]):
+            return [IsAdminOrOwner()]
+        return super().get_permissions()
+    
     # @action(detail=True, methods=["get"], url_path="")
-class CommendationDisciplineViewsets(viewsets.ViewSet, generics.CreateAPIView):
+class CommendationDisciplineViewsets(viewsets.ViewSet, generics.CreateAPIView,generics.UpdateAPIView):
     queryset=CommendationDiscipline.objects.all()
     serializer_class = CommendationDisciplineSerializers
     permission_classes = [IsAdmin]
+    def get_serializer_class(self):
+        if self.action in ["update","partial_update"]:
+            return UpdateCommendationDisciplineSerializers
+        return super().get_serializer_class()
 
-class LeaveRequestViewset(viewsets.ViewSet,generics.ListCreateAPIView):
+class LeaveRequestViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.UpdateAPIView):
     queryset = LeaveRequest.objects.all()
     serializer_class = LeaveRequestSerializers
     permission_classes=[permissions.IsAuthenticated]
@@ -29,6 +77,8 @@ class LeaveRequestViewset(viewsets.ViewSet,generics.ListCreateAPIView):
     filterset_class = LeaveRequestFilter
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return LeaveRequest.objects.none()
         user = self.request.user
         if hasattr(user, 'role') and user.role == "Admin":
             return LeaveRequest.objects.all()
@@ -59,4 +109,75 @@ class LeaveRequestViewset(viewsets.ViewSet,generics.ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
+class WorkTypeViewset(viewsets.ViewSet,generics.ListAPIView):
+    queryset = WorkType.objects.all()
+    serializer_class = WorkTypeserializer
+class OverTimeViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.UpdateAPIView):
+    queryset = Overtime.objects.all()
+    serializer_class = OverTimeSerializers
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = OverTimeFilter
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return Overtime.objects.none()
+        user = self.request.user
+        if hasattr(user, 'role') and user.role == "Admin":
+            return Overtime.objects.all()
+        return Overtime.objects.filter(employee=user.employee)
 
+    def get_serializer_class(self):
+        if self.action in ["update","partial_update"]:
+            return UpdateOverTimeSerializers
+        if self.action in ["create"]:
+            return createTimeSerializers
+        return super().get_serializer_class()
+    
+class SalaryAdvanceViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.UpdateAPIView):
+    queryset = SalaryAdvance.objects.all()
+    serializer_class = SalaryAdvanceSerializers
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = SalaryAdvanceFilter
+
+    def get_serializer_class(self):
+        if self.action in ["update","partial_update"]:
+            return UpdateSalaryAdvanceSerializers
+        return super().get_serializer_class()
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return SalaryAdvance.objects.none()
+        user = self.request.user
+        if hasattr(user, 'role') and user.role == "Admin":
+            return SalaryAdvance.objects.all()
+        return SalaryAdvance.objects.filter(employee=user.employee)
+class AllowanceTypeViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.DestroyAPIView,generics.UpdateAPIView):
+    queryset=AllowanceType.objects.all()
+    serializer_class = AllowanceTypeSerializer
+    permission_classes = [IsAdmin]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = AllowanceTypeFilter
+
+class EmployeeAllowanceViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.DestroyAPIView,generics.UpdateAPIView):
+    queryset= EmployeeAllowance.objects.all()
+    serializer_class = EmployeeAllowanceSerializer
+    permission_classes = [IsAdmin]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = EmployeeAllowanceFilter
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return EmployeeAllowance.objects.none()
+        user = self.request.user
+        if hasattr(user, 'role') and user.role == "Admin":
+            return EmployeeAllowance.objects.all()
+        return EmployeeAllowance.objects.filter(employee=user.employee)
+    def get_serializer_class(self):
+        if self.action in ["update","partial_update"]:
+            return UpdateEmployeeAllowanceSerializer
+        if self.action in ["create"]:
+            return CreateEmployeeAllowanceSerializer
+        return super().get_serializer_class()
+class ShiftTypeViewset(viewsets.ViewSet,generics.ListAPIView):
+    queryset=ShiftType.objects.all()
+    serializer_class = ShifTypeSerializer
+    permission_classes = [IsAdmin]
+    # filter_backends = [DjangoFilterBackend]
+    # filterset_class = AllowanceTypeFilter

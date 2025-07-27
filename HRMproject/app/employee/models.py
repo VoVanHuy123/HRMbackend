@@ -2,6 +2,7 @@ from django.db import models
 from HRMproject.models import BaseModel
 from cloudinary.models import CloudinaryField
 from django.core.validators import RegexValidator
+from datetime import datetime
 
 # Create your models here.
 class Employee(BaseModel):
@@ -132,9 +133,9 @@ class Insurance(BaseModel):
 class EmployeeAllowance(BaseModel):
     employee = models.ForeignKey("employee.Employee", on_delete=models.CASCADE, related_name='employee_allowances', verbose_name="Employee")
     allowance_type = models.ForeignKey("timesheet.AllowanceType", on_delete=models.CASCADE, related_name='employee_allowances', verbose_name="Allowance Type")
-    date = models.DateField(verbose_name="Date")
+    date = models.DateField(verbose_name="Date",default=datetime.now())
     content = models.TextField(blank=True, null=True, verbose_name="Content")
-    amount = models.FloatField(verbose_name="Amount")
+    amount = models.FloatField(verbose_name="Amount",null=True )
 
     class Meta:
         verbose_name = "Employee Allowance"

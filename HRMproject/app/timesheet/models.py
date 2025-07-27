@@ -15,6 +15,7 @@ class Timesheet(BaseModel):
     extra_break_minutes = models.IntegerField(default=0, verbose_name="Extra Break Minutes")
     lunch_break = models.IntegerField(default=1)
     total_working_hours = models.FloatField(default=0.0)
+    work_coefficient = models.FloatField(default=0.0)
 
     # Foreign_key
     work_type = models.ForeignKey("WorkType", on_delete=models.SET_NULL, null=True, blank=True, related_name='timesheet', verbose_name="WorkType")
@@ -38,6 +39,12 @@ class Timesheet(BaseModel):
             lunch_break_minutes = self.lunch_break * 60
             worked_minutes -= (self.extra_break_minutes + lunch_break_minutes)
             self.total_working_hours = round(worked_minutes / 60, 2)
+
+            coeff = (worked_minutes / 60)/7.5
+            if(coeff > 1 ):
+                self.work_coefficient = 1
+            else:
+                self.work_coefficient = round(coeff, 2)
         else:
             self.total_working_hours = 0.0
         super().save(*args, **kwargs)
@@ -64,6 +71,8 @@ class Overtime(BaseModel):
     date = models.DateField(verbose_name="Date")
     month = models.IntegerField(verbose_name="Month")
     year = models.IntegerField(verbose_name="Year")
+    time_in = models.TimeField(null=True, blank=True, verbose_name="Time In")
+    time_out = models.TimeField(null=True, blank=True, verbose_name="Time Out")
     hours = models.FloatField(verbose_name="Hours")
 
     shift_type = models.ForeignKey("ShiftType", on_delete=models.SET_NULL, null=True, blank=True, related_name='overtime', verbose_name="ShiftType")
@@ -73,6 +82,23 @@ class Overtime(BaseModel):
         verbose_name_plural = "Overtime Records"
         unique_together = ("employee", 'date') # An employee can only have one overtime entry per day
         db_table = "overtime"
+    def save(self, *args, **kwargs):
+        if self.date:
+            self.month = self.date.month
+            self.year = self.date.year
+        if self.time_in and self.time_out:
+            # Combine with date to get datetime objects
+            dt_time_in = datetime.combine(self.date, self.time_in)
+            dt_time_out = datetime.combine(self.date, self.time_out)
+            # Handle overnight shifts
+            if dt_time_out < dt_time_in:
+                dt_time_out += timedelta(days=1)
+            # Calculate total working time in minutes
+            worked_minutes = (dt_time_out - dt_time_in).total_seconds() / 60
+            self.hours = round(worked_minutes / 60, 2)
+        else:
+            self.hours = 0.0
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Overtime for {self.employee.first_name} {self.employee.last_name} on {self.date}"
@@ -117,21 +143,27 @@ class StatusType(models.TextChoices):
 class SalaryAdvance(BaseModel):
     employee = models.ForeignKey("employee.Employee", on_delete=models.CASCADE, related_name='salary_advances', verbose_name="Employee")
     date = models.DateField(verbose_name="Date")
-    month = models.IntegerField(verbose_name="Month")
-    year = models.IntegerField(verbose_name="Year")
+    month = models.IntegerField(verbose_name="Month",null=True)
+    year = models.IntegerField(verbose_name="Year",null=True)
     status = EnumField(choices=StatusType.choices, default=StatusType.PENDING)# e.g., 'Approved', 'Pending'
+    amount = models.FloatField(verbose_name="Amount",default=0.0)
 
     class Meta:
         verbose_name = "Salary Advance"
         verbose_name_plural = "Salary Advances"
         db_table="salary_advance"
+    def save(self, *args, **kwargs):
+        if self.date:
+            self.month = self.date.month
+            self.year = self.date.year
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Salary advance for {self.employee.first_name} {self.employee.last_name} on {self.date}"
 
 class AllowanceType(BaseModel):
     name = models.CharField(max_length=255, unique=True, verbose_name="Allowance Name")
-    amount = models.FloatField(verbose_name="Amount")
+    amount = models.FloatField(verbose_name="Amount",null=True)
 
     class Meta:
         verbose_name = "Allowance Type"

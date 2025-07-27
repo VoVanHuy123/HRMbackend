@@ -37,16 +37,21 @@ class Payroll(BaseModel):
 
     class Meta:
         unique_together = ('employee', 'month', 'year')
+    
+    def save(self, *args, **kwargs):
+        self.coefficient = self.employee.salary_grade.coefficient
+        self.base_salary = self.employee.base_salary.salry
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Lương {self.month}/{self.year} - {self.employee}"
 
-    def tinh_luong(self):
-        if self.base_salary and self.coefficient and self.standard_work_number:
-            tong_lcb = self.base_salary * self.coefficient
-            self.actual_salary = int((self.working_day / self.standard_work_number.standard_work_number) * tong_lcb+self.allowance+ self.overtime_pay+ self.bonus-self.penalty)
-        else:
-            self.actual_salary = 0
+    # def tinh_luong(self):
+    #     if self.base_salary and self.coefficient and self.standard_work_number:
+    #         tong_lcb = self.base_salary * self.coefficient
+    #         self.actual_salary = int((self.working_day / self.standard_work_number.standard_work_number) * tong_lcb+self.allowance+ self.overtime_pay+ self.bonus-self.penalty)
+    #     else:
+    #         self.actual_salary = 0
 class SalaryGrade(BaseModel):
     grade_name = models.CharField(max_length=255,unique=True)
     coefficient = models.FloatField(default=0.0)
