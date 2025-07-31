@@ -155,6 +155,16 @@ class AllowanceTypeViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.
     permission_classes = [IsAdmin]
     filter_backends = [DjangoFilterBackend]
     filterset_class = AllowanceTypeFilter
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="not-fixed",  # Đổi url_path thành rõ nghĩa
+        permission_classes=[IsAdmin]  # Bạn có thể sửa nếu cần
+    )
+    def get_allowance_type_not_fixed(self, request):
+        queryset = AllowanceType.objects.filter(is_fixed=False)
+        serializer = self.serializer_class(queryset, many=True)
+        return Response(serializer.data)
 
 class EmployeeAllowanceViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.DestroyAPIView,generics.UpdateAPIView):
     queryset= EmployeeAllowance.objects.all()

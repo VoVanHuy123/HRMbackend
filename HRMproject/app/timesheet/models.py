@@ -164,6 +164,7 @@ class SalaryAdvance(BaseModel):
 class AllowanceType(BaseModel):
     name = models.CharField(max_length=255, unique=True, verbose_name="Allowance Name")
     amount = models.FloatField(verbose_name="Amount",null=True)
+    is_fixed = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = "Allowance Type"

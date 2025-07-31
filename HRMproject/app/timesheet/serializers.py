@@ -52,7 +52,7 @@ class OverTimeSerializers(serializers.ModelSerializer):
     shift_type = ShifTypeSerializer()
     class Meta:
         model = Overtime
-        fields = ['id','hours','year','time_in','time_out','employee',"shift_type"]
+        fields = ['id','hours','date','time_in','time_out','employee',"shift_type"]
 class createTimeSerializers(serializers.ModelSerializer):
     class Meta:
         model = Overtime
@@ -73,7 +73,7 @@ class UpdateSalaryAdvanceSerializers(serializers.ModelSerializer):
 class AllowanceTypeSerializer(serializers.ModelSerializer):
     class Meta: 
         model = AllowanceType
-        fields = ["id","name","amount"]
+        fields = ["id","name","amount","is_fixed"]
 class EmployeeAllowanceSerializer(serializers.ModelSerializer):
     employee = NameEmployeeSerializer()
     allowance_type = AllowanceTypeSerializer()
