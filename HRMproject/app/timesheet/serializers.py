@@ -31,6 +31,7 @@ class UpdateTimeSheetSerializers(serializers.ModelSerializer):
         fields = ["id","date","year","month","time_in","time_out","total_working_hours","work_coefficient","work_type"]
 
 class CommendationDisciplineSerializers(serializers.ModelSerializer):
+    employee = NameEmployeeSerializer()
     class Meta:
         model = CommendationDiscipline
         fields = ['id', 'employee', 'content', 'date', 'record_type', 'amount']

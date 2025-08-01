@@ -29,21 +29,30 @@ from datetime import datetime
 
 
 # Create your views here.
-class BaseSalaryViewset(viewsets.ViewSet,generics.ListAPIView):
+class BaseSalaryViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
     queryset = BaseSalary.objects.all()
     serializer_class = BaseSalarySerializer
     permission_classes = [IsAdmin]
-class SalaryGradeViewset(viewsets.ViewSet,generics.ListAPIView):
+class SalaryGradeViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
     queryset = SalaryGrade.objects.all()
     serializer_class = SalaryGradeSerializer
     permission_classes = [IsAdmin]
-class WorkStandardViewset(viewsets.ViewSet,generics.ListAPIView):
+    def get_permissions(self):
+        if(self.action == 'list'):
+            return [permissions.IsAuthenticated()]
+        return super().get_permissions()
+
+class WorkStandardViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
     queryset = WorkStandard.objects.all()
     serializer_class = WorkStandardSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdmin]
+    def get_permissions(self):
+        if(self.action=='list'):
+            return [permissions.IsAuthenticated()]
+        return super().get_permissions()
 
 
-class PayrollViewset(viewsets.ViewSet, generics.ListAPIView, generics.UpdateAPIView, generics.CreateAPIView):
+class PayrollViewset(viewsets.ViewSet, generics.ListAPIView, generics.UpdateAPIView, generics.CreateAPIView,generics.DestroyAPIView):
     queryset = Payroll.objects.all()
     serializer_class = PayRollSerializer
     permission_classes = [IsAdmin]

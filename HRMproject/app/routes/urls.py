@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from user.views import UserViewSet
-from employee.views import EmployeeViewset,ContractViewset,DepartmentViewset,DivisionViewset,QualificationViewset,PositionViewset
+from employee.views import *
 from salary.views import BaseSalaryViewset,SalaryGradeViewset,PayrollViewset,WorkStandardViewset
 from timesheet.views import *
 
@@ -27,6 +27,7 @@ routers.register('employee_allowances',EmployeeAllowanceViewset,basename="employ
 routers.register('shift_types',ShiftTypeViewset,basename="shift_type")
 routers.register('payrolls',PayrollViewset,basename="payroll")
 routers.register('work_standards',WorkStandardViewset,basename="work_standard")
+routers.register('insurances',InsuranceViewset,basename="insurance")
 urlpatterns = [
     path('', include(routers.urls)),
 

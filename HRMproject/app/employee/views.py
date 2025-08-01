@@ -4,10 +4,10 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi    
 from rest_framework import viewsets,generics,parsers,permissions,status
 from rest_framework.response import Response
-from .models import Employee,Contract,Department,Division,Qualification,Position
+from .models import Employee,Contract,Department,Division,Qualification,Position,Insurance
 from timesheet.models import Timesheet,CommendationDiscipline
 from timesheet.serializers import TimeSheetSerializers,CommendationDisciplineSerializers
-from .serializers import EmployeeSerializer,ContractSerializer,ListEmployeeSerializer,DepartmentSerializer,DivisionSerializer,QualificationSerializer,PositionSerializer
+from .serializers import *
 from .paginators import EmployeePaginator
 from user.permisions import IsAdmin,IsAdminOrOwner
 from django_filters.rest_framework import DjangoFilterBackend
@@ -30,7 +30,11 @@ class EmployeeViewset(viewsets.ViewSet,generics.RetrieveAPIView,generics.CreateA
 
     def get_serializer_class(self):
         if self.action == 'list':
-            return ListEmployeeSerializer  # dùng serializer khác khi create
+            return ListEmployeeSerializer  
+        if self.action == 'partial_update':
+            return UpdateEmployeeSerializer  
+        if self.action == 'office_info_update':
+            return OfficeEmployeeSerializer  
         return EmployeeSerializer
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -39,8 +43,7 @@ class EmployeeViewset(viewsets.ViewSet,generics.RetrieveAPIView,generics.CreateA
         # Các trường cần cập nhật
         update_fields = [
             'first_name', 'last_name', 'gender', 'date_of_birth',
-            'phone_number', 'citizen_id', 'address', 'email',"active",'qualification',
-            'position','department','division',"salary_grade","base_salary","active",
+            'phone_number', 'citizen_id', 'address', 'email',"active",
         ]
 
         for field in update_fields:
@@ -54,9 +57,13 @@ class EmployeeViewset(viewsets.ViewSet,generics.RetrieveAPIView,generics.CreateA
         instance.save()
         serializer = self.get_serializer(instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    # @action(detail=True, methods=["get"], url_path="timesheets", permission_classes=[IsAdminOrOwner])
-    # def get_employee_timesheets():
-    #     pass
+    @action(detail=True, methods=["patch"], url_path="office_info_update", permission_classes=[IsAdmin])
+    def office_info_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
     @swagger_auto_schema(
         method='get',
         # request_body=LoginSerializer,
@@ -152,7 +159,7 @@ class ContractViewset(viewsets.ViewSet, generics.RetrieveAPIView, generics.Creat
     queryset = Contract.objects.filter(active = True)
     serializer_class = ContractSerializer
     permission_classes = [IsAdmin]
-class DepartmentViewset(viewsets.ViewSet,generics.ListCreateAPIView):
+class DepartmentViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -185,19 +192,35 @@ class DivisionViewset(viewsets.ViewSet,generics.CreateAPIView):
         if self.action == "create":
             return [IsAdmin()]
         return super().get_permissions()
-class QualificationViewset(viewsets.ViewSet,generics.ListCreateAPIView):
+class QualificationViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
     queryset = Qualification.objects.all()
     serializer_class = QualificationSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdmin]
     def get_permissions(self):
-        if self.action == "create":
-            return [IsAdmin()]
+        if self.action == "list":
+            return [permissions.IsAuthenticated()]
         return super().get_permissions()
-class PositionViewset(viewsets.ViewSet,generics.ListCreateAPIView):
+class PositionViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
     queryset = Position.objects.all()
     serializer_class = PositionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdmin]
+
     def get_permissions(self):
-        if self.action == "create":
-            return [IsAdmin()]
+        if self.action == "list":
+            return [permissions.IsAuthenticated()]
+        return super().get_permissions()
+
+class InsuranceViewset(viewsets.ViewSet,generics.CreateAPIView,generics.RetrieveUpdateDestroyAPIView):
+    queryset = Insurance.objects.all()
+    serializer_class = InsuranceSerializer
+    permission_classes = [IsAdmin]
+
+    def get_serializer_class(self, *args, **kwargs):
+        if(self.action in ["create","update"]):
+            return CreateInsuranceSerializer
+        return super().get_serializer_class(*args, **kwargs)
+
+    def get_permissions(self):
+        if self.action == "retrieve":
+            return [IsAdminOrOwner()]
         return super().get_permissions()

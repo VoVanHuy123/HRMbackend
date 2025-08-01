@@ -73,6 +73,12 @@ class EmployeeAllowanceFilter(BaseFilter):
     class Meta(BaseFilter.Meta):
         model = EmployeeAllowance
         fields = BaseFilter.Meta.fields
+
+class CommendationDisciplineFilter(BaseFilter):
+    class Meta(BaseFilter.Meta):
+        model = CommendationDiscipline
+        fields = BaseFilter.Meta.fields
+
 class AllowanceTypeFilter(filters.FilterSet):
     name = filters.CharFilter(field_name="name", lookup_expr="icontains")
     class Meta:
