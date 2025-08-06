@@ -33,6 +33,10 @@ class BaseSalaryViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.Upd
     queryset = BaseSalary.objects.all()
     serializer_class = BaseSalarySerializer
     permission_classes = [IsAdmin]
+    def get_permissions(self):
+        if(self.action == 'list'):
+            return [permissions.IsAuthenticated()]
+        return super().get_permissions()
 class SalaryGradeViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
     queryset = SalaryGrade.objects.all()
     serializer_class = SalaryGradeSerializer

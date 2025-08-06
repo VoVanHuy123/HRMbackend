@@ -44,6 +44,10 @@ class LeaveRequestSerializers(serializers.ModelSerializer):
     class Meta:
         model = LeaveRequest
         fields = ['id','content','date','status','employee']
+class CreateLeaveRequestSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = LeaveRequest
+        fields = ['id','content','date','employee']
 class ShifTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShiftType
@@ -67,6 +71,10 @@ class SalaryAdvanceSerializers(serializers.ModelSerializer):
     class Meta:
         model = SalaryAdvance
         fields = ['id','month','date','year','status','amount','employee']
+class CreateSalaryAdvanceSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = SalaryAdvance
+        fields = ['id','date','amount','status','employee']
 class UpdateSalaryAdvanceSerializers(serializers.ModelSerializer):
     class Meta:
         model = SalaryAdvance

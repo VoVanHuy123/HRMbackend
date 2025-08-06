@@ -70,9 +70,14 @@ def calculate_actual_salary(employee, month, year, work_standard_days):
 
     # Lương chính
     work_salary = daily_rate * total_coefficient
-
+    # Ứng lương trong tháng
+    salary_advance_total = (
+        employee.salary_advances
+        .filter(month=month, year=year, status="Approved")
+        .aggregate(total=Sum("amount"))["total"] or 0
+    )
     # Tổng lương
-    actual_salary = round(work_salary + bonus - penalty + overtime_pay + total_allowance)
+    actual_salary = round(work_salary + bonus - penalty + overtime_pay + total_allowance -salary_advance_total)
 
     return {
         "working_days": working_days,
@@ -80,6 +85,7 @@ def calculate_actual_salary(employee, month, year, work_standard_days):
         "penalty": penalty,
         "overtime_pay": overtime_pay,
         "allowance": total_allowance,
+        "salary_advance": salary_advance_total,
         "base_work_salary": work_salary,
         "actual_salary": actual_salary
     }

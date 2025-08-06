@@ -46,14 +46,14 @@ class TimeSheetViewset(viewsets.ViewSet,generics.ListAPIView,generics.UpdateAPIV
         if self.action in ["update","partial_update"]:
             return UpdateTimeSheetSerializers
         return super().get_serializer_class()
-    def filter_queryset(self, queryset):
-        user = self.request.user
-        params = self.request.query_params
+    # def filter_queryset(self, queryset):
+    #     user = self.request.user
+    #     params = self.request.query_params
 
-        if not hasattr(user, 'role') or user.role != "Admin":
-            if 'employee_id' in params or 'name' in params:
-                raise PermissionDenied("Bạn không có quyền lọc theo nhân viên.")
-        return super().filter_queryset(queryset)
+    #     if not hasattr(user, 'role') or user.role != "Admin":
+    #         if 'employee_id' in params or 'name' in params:
+    #             raise PermissionDenied("Bạn không có quyền lọc theo nhân viên.")
+    #     return super().filter_queryset(queryset)
     def get_permissions(self):
         if(self.action in ["list","update","partial_update"]):
             return [IsAdminOrOwner()]
@@ -80,6 +80,10 @@ class CommendationDisciplineViewsets(viewsets.ViewSet, generics.CreateAPIView,ge
         if self.action in ["update","partial_update"]:
             return UpdateCommendationDisciplineSerializers
         return super().get_serializer_class()
+    def get_permissions(self):
+        if self.action in ['list']:
+            return [permissions.IsAuthenticated()]
+        return super().get_permissions()
 
 class LeaveRequestViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.UpdateAPIView):
     queryset = LeaveRequest.objects.all()
@@ -88,6 +92,10 @@ class LeaveRequestViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.U
     filter_backends = [DjangoFilterBackend]
     filterset_class = LeaveRequestFilter
 
+    def get_serializer_class(self):
+        if self.action in ["create"]:
+            return CreateLeaveRequestSerializers
+        return super().get_serializer_class()
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False):
             return LeaveRequest.objects.none()
@@ -149,7 +157,7 @@ class OverTimeViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.Updat
             return createTimeSerializers
         return super().get_serializer_class()
     
-class SalaryAdvanceViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.UpdateAPIView):
+class SalaryAdvanceViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
     queryset = SalaryAdvance.objects.all()
     serializer_class = SalaryAdvanceSerializers
     filter_backends = [DjangoFilterBackend]
@@ -158,6 +166,8 @@ class SalaryAdvanceViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.
     def get_serializer_class(self):
         if self.action in ["update","partial_update"]:
             return UpdateSalaryAdvanceSerializers
+        if self.action in ["create"]:
+            return CreateSalaryAdvanceSerializers
         return super().get_serializer_class()
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False):
@@ -176,7 +186,7 @@ class AllowanceTypeViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.
         detail=False,
         methods=["get"],
         url_path="not-fixed",  # Đổi url_path thành rõ nghĩa
-        permission_classes=[IsAdmin]  # Bạn có thể sửa nếu cần
+        permission_classes=[permissions.IsAuthenticated]  # Bạn có thể sửa nếu cần
     )
     def get_allowance_type_not_fixed(self, request):
         queryset = AllowanceType.objects.filter(is_fixed=False)
@@ -202,6 +212,10 @@ class EmployeeAllowanceViewset(viewsets.ViewSet,generics.ListCreateAPIView,gener
         if self.action in ["create"]:
             return CreateEmployeeAllowanceSerializer
         return super().get_serializer_class()
+    def get_permissions(self):
+        if self.action in ['list']:
+            return [permissions.IsAuthenticated()]
+        return super().get_permissions()
 class ShiftTypeViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
     queryset=ShiftType.objects.all()
     serializer_class = ShifTypeSerializer
