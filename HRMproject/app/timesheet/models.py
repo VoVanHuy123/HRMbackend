@@ -2,6 +2,9 @@ from django.db import models
 from HRMproject.models import BaseModel
 from django_mysql.models import EnumField
 from datetime import datetime, timedelta
+from django.utils import timezone
+from datetime import time
+
 
 # Create your models here.
 #  bảng công
@@ -9,7 +12,7 @@ class Timesheet(BaseModel):
     employee = models.ForeignKey("employee.Employee", on_delete=models.CASCADE, related_name='timesheets', verbose_name="Employee")
     year = models.IntegerField(verbose_name="Year")
     month = models.IntegerField(verbose_name="Month")
-    date = models.DateField(verbose_name="Date",null=True)
+    date = models.DateField(verbose_name="Date", null=True, default=timezone.now)
     time_in = models.TimeField(null=True, blank=True, verbose_name="Time In")
     time_out = models.TimeField(null=True, blank=True, verbose_name="Time Out")
     extra_break_minutes = models.IntegerField(default=0, verbose_name="Extra Break Minutes")
@@ -26,27 +29,40 @@ class Timesheet(BaseModel):
         unique_together = ("employee", 'date') # An employee can only have one timesheet entry per day
         db_table = 'timesheet'
     def save(self, *args, **kwargs):
+        if self.date:
+            self.year = self.date.year
+            self.month = self.date.month
+            
         if self.time_in and self.time_out:
-            # Combine with date to get datetime objects
             dt_time_in = datetime.combine(self.date, self.time_in)
             dt_time_out = datetime.combine(self.date, self.time_out)
-            # Handle overnight shifts
+            
+            # Handle overnight shift
             if dt_time_out < dt_time_in:
                 dt_time_out += timedelta(days=1)
-            # Calculate total working time in minutes
+            
             worked_minutes = (dt_time_out - dt_time_in).total_seconds() / 60
-            # Subtract extra break
-            lunch_break_minutes = self.lunch_break * 60
+            
+            # xác định 12h trưa
+            noon_time = datetime.combine(self.date, time(12, 0))
+            
+            # kiểm tra nếu ca không vắt qua buổi trưa
+            if dt_time_in >= noon_time or dt_time_out <= noon_time:
+                lunch_break_minutes = 0  # không trừ lunch
+            else:
+                lunch_break_minutes = self.lunch_break * 60
+            
             worked_minutes -= (self.extra_break_minutes + lunch_break_minutes)
             self.total_working_hours = round(worked_minutes / 60, 2)
 
-            coeff = (worked_minutes / 60)/7.5
-            if(coeff > 1 ):
+            coeff = (worked_minutes / 60) / 7.5
+            if coeff > 1:
                 self.work_coefficient = 1
             else:
                 self.work_coefficient = round(coeff, 2)
         else:
             self.total_working_hours = 0.0
+            
         super().save(*args, **kwargs)
 
     def __str__(self):

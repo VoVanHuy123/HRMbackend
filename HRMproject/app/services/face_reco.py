@@ -89,13 +89,26 @@ def calculate_average_embedding(employee):
     avg_embedding = np.mean(embeddings, axis=0)
     print(f"✅ Tính trung bình {len(embeddings)} ảnh cho nhân viên {employee}")
     return avg_embedding, None
+def cosine_similarity(a, b):
+    """
+    Tính cosine similarity giữa hai vector numpy.
+    Trả về giá trị trong khoảng [-1, 1]
+    """
+    a = np.array(a)
+    b = np.array(b)
+    dot_product = np.dot(a, b)
+    norm_a = np.linalg.norm(a)
+    norm_b = np.linalg.norm(b)
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return dot_product / (norm_a * norm_b)
 
-if __name__ == "__main__":
-    # Ảnh demo có khuôn mặt rõ ràng
-    test_image_url = "https://raw.githubusercontent.com/ageitgey/face_recognition/master/examples/obama.jpg"
-    embedding = extract_face_embedding(test_image_url)
+# if __name__ == "__main__":
+#     # Ảnh demo có khuôn mặt rõ ràng
+#     test_image_url = "https://raw.githubusercontent.com/ageitgey/face_recognition/master/examples/obama.jpg"
+#     embedding = extract_face_embedding(test_image_url)
 
-    if embedding is not None:
-        print("👉 Kết quả embedding (first 5 dims):", embedding[:5])
-    else:
-        print("⚠️ Test thất bại: Không có embedding.")
+#     if embedding is not None:
+#         print("👉 Kết quả embedding (first 5 dims):", embedding[:5])
+#     else:
+#         print("⚠️ Test thất bại: Không có embedding.")

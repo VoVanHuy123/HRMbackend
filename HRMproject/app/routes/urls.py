@@ -31,6 +31,8 @@ routers.register('work_standards',WorkStandardViewset,basename="work_standard")
 routers.register('insurances',InsuranceViewset,basename="insurance")
 routers.register('face_reconition_trains',FaceRecognitionViewset,basename="face_reconition_train")
 
+routers.register('face_embeddings',FaceEmbeddingViewset,basename="face_embedding")
+
 urlpatterns = [
     path('', include(routers.urls)),
 
