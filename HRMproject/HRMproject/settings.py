@@ -12,6 +12,13 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 
+import dotenv
+import sys
+import os
+# Đảm bảo .env được load
+BASE_DIR = Path(__file__).resolve().parent.parent
+dotenv.load_dotenv(os.path.join(BASE_DIR, '.env'))
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -49,7 +56,9 @@ INSTALLED_APPS = [
     'timesheet',
     'facerecognition',
     'corsheaders',
-    'salary'
+    'salary',
+    "channels",
+    "app"
 ]
 
 MIDDLEWARE = [
@@ -83,6 +92,21 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'HRMproject.wsgi.application'
 
+# web socket
+ASGI_APPLICATION  = 'HRMproject.asgi.application'
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [
+                # "rediss://default:<PASSWORD>@<HOST>:<PORT>"
+                # "redis://default:emkpK66MZgCqQgWnO9P2lOplAeWOsPby@redis-19134.c84.us-east-1-2.ec2.redns.redis-cloud.com:19134"
+                os.getenv('REDIS_HOSTS'),
+            ],
+        },
+    },
+}
+
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -93,12 +117,7 @@ WSGI_APPLICATION = 'HRMproject.wsgi.application'
 #         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
 # }
-import dotenv
-import sys
-import os
-# Đảm bảo .env được load
-BASE_DIR = Path(__file__).resolve().parent.parent
-dotenv.load_dotenv(os.path.join(BASE_DIR, '.env'))
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',

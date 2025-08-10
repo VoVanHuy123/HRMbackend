@@ -23,19 +23,23 @@ from employee.models import (
     Employee
 )
 from timesheet.models import (
-    Timesheet,WorkType
+    Timesheet,
+    WorkType,
+    ShiftType,
+    Overtime
 )
 from .serializers import(
     FaceEmbeddingSerializer
 )
 from timesheet.serializers import (
-    TimeSheetSerializers
+    TimeSheetSerializers,
+    OverTimeSerializers
 )
 
 class FaceRecognitionViewset(viewsets.ViewSet):
     permission_classes = [IsAdmin]
     def get_permissions(self):
-        if(self.action == "VerifyIdentity"):
+        if(self.action in ["VerifyIdentity","OvertimeVerifyIdentity"]):
             return [permissions.IsAuthenticated()]
         return super().get_permissions()
     @action(detail=False,methods=["post"], url_path="post_face_images")
@@ -177,7 +181,7 @@ class FaceRecognitionViewset(viewsets.ViewSet):
                 # Cập nhật hoặc tạo timesheet
                 now_time = datetime.now().time()
                 if not timesheet:
-                    Timesheet.objects.create(employee=employee, date=today, time_in=now_time,work_type=work_type)
+                    timesheet=Timesheet.objects.create(employee=employee, date=today, time_in=now_time,work_type=work_type)
                 else:
                     timesheet.time_out = now_time
                     timesheet.save()
@@ -192,6 +196,7 @@ class FaceRecognitionViewset(viewsets.ViewSet):
                     "faceImages": [*images, image_url]
                 })
             else:
+                
                 FaceLog.objects.create(
                     employee=employee,
                     is_matched=False,
@@ -199,6 +204,14 @@ class FaceRecognitionViewset(viewsets.ViewSet):
                     confidence_score=round(float(best_score), 4),
                     note=f"Xác thực thất bại (nhận diện thành nhân viên {employee.first_name} {employee.last_name})"
                 )
+                return Response({
+                    "message": "Xác nhận thất bại",
+                    # "employee_id": best_match.id,
+                    # "employee_name": f"{best_match.first_name} {best_match.last_name}",
+                    "similarity": round(float(best_score), 4),
+                    "timesheet": TimeSheetSerializers(timesheet).data,
+                    "faceImages": [*images, image_url]
+                })
         else:
             # ❌ KHÔNG MATCH — Ghi vào FaceRecognitionFailure
             FaceRecognitionFailure.objects.create(
@@ -207,7 +220,134 @@ class FaceRecognitionViewset(viewsets.ViewSet):
                 note=f"Độ tương đồng cao nhất: {round(float(best_score), 4)}"
             )
             return Response({"error": "Không xác định được danh tính"}, status=404)
-        # return Response({"error": "Không xác định được danh tính"}, status=404)
+        
+    @action(detail=False, methods=["post"], url_path="overtime_verify_identity")
+    def OvertimeVerifyIdentity(self, request, *args, **kwargs):
+        employee_id = request.data.get("employee_id")
+        if not employee_id:
+            return Response({"error": "Thiếu employee_id"}, status=400)
+
+        employee = Employee.objects.filter(id=employee_id).first()
+        if not employee:
+            return Response({"error": "Không tìm thấy nhân viên"}, status=404)
+        
+        shift_type_id = request.data.get("shift_type_id")
+        if not shift_type_id:
+            return Response({"error": "Thiếu shift_type_id"}, status=400)
+        shift_type = ShiftType.objects.filter(id=shift_type_id).first()
+        
+        today = date.today()
+        
+        facelogs = FaceLog.objects.filter(
+            employee=employee,
+            timestamp__date=today,
+            is_matched=True
+        ).order_by("timestamp")  # để ảnh vào trước ra sau
+
+        images = [log.image.url if log.image else None for log in facelogs]
+
+        overtime = Overtime.objects.filter(employee=employee, date=today).first()
+        if overtime and overtime.time_out:
+                # Đã chấm công rồi => không cập nhật gì
+                return Response({
+                    "message": "Nhân viên đã chấm công xong hôm nay",
+                    "employee_id": employee.id,
+                    "employee_name": f"{employee.first_name} {employee.last_name}",
+                    "overtime": OverTimeSerializers(overtime).data,
+                    "faceImages" : images
+                })
+        
+
+        image_file = request.FILES.get("image")
+        if not image_file:
+            return Response({"error": "Thiếu ảnh"}, status=400)
+
+        # Upload ảnh lên Cloudinary
+        cloud_img = upload(image_file)
+        image_url = cloud_img['secure_url']
+
+        # Trích xuất embedding từ ảnh
+        embedding = extract_face_embedding(image_url)
+        if embedding is None:
+            FaceRecognitionFailure.objects.create(
+                image=image_file,
+                reason="Không thể trích xuất embedding",
+                note="Có thể do ảnh không có khuôn mặt rõ"
+            )
+            return Response({"error": "Không thể trích xuất embedding"}, status=400)
+
+        # So sánh với embedding đã lưu
+        all_embeddings = FaceEmbedding.objects.select_related("employee").all()
+        if not all_embeddings:
+            return Response({"error": "Không có dữ liệu embedding"}, status=404)
+
+        best_match = None
+        best_score = -1
+        threshold = 0.7
+
+        for fe in all_embeddings:
+            db_embedding = np.frombuffer(fe.embedding, dtype=np.float32)
+            if db_embedding.shape != embedding.shape:
+                continue
+            score = cosine_similarity(embedding, db_embedding)
+            if score > best_score:
+                best_score = score
+                best_match = fe.employee
+
+        if best_score >= threshold:
+            # ✅ MATCHED — Ghi vào FaceLog
+            if(employee.id == best_match.id):
+                FaceLog.objects.create(
+                    employee=best_match,
+                    is_matched=True,
+                    image=image_url,
+                    confidence_score=round(float(best_score), 4),
+                    note="Xác thực thành công"
+                )
+
+
+                # Cập nhật hoặc tạo timesheet
+                now_time = datetime.now().time()
+                if not overtime:
+                    overtime=Overtime.objects.create(employee=employee, date=today, time_in=now_time,shift_type=shift_type)
+                else:
+                    overtime.time_out = now_time
+                    overtime.save()
+                
+
+                return Response({
+                    "message": "Xác nhận thành công",
+                    "employee_id": best_match.id,
+                    "employee_name": f"{best_match.first_name} {best_match.last_name}",
+                    "similarity": round(float(best_score), 4),
+                    "overtime": OverTimeSerializers(overtime).data,
+                    "faceImages": [*images, image_url]
+                })
+            else:
+                
+                FaceLog.objects.create(
+                    employee=employee,
+                    is_matched=False,
+                    image=image_url,
+                    confidence_score=round(float(best_score), 4),
+                    note=f"Xác thực thất bại (nhận diện thành nhân viên {employee.first_name} {employee.last_name})"
+                )
+                return Response({
+                    "message": "Xác nhận thất bại",
+                    "employee_id": best_match.id,
+                    "employee_name": f"{best_match.first_name} {best_match.last_name}",
+                    "similarity": round(float(best_score), 4),
+                    "overtime": OverTimeSerializers(overtime).data,
+                    "faceImages": [*images, image_url]
+                })
+        else:
+            # ❌ KHÔNG MATCH — Ghi vào FaceRecognitionFailure
+            FaceRecognitionFailure.objects.create(
+                image=image_file,
+                reason="Không khớp với nhân viên nào",
+                note=f"Độ tương đồng cao nhất: {round(float(best_score), 4)}"
+            )
+            return Response({"error": "Không xác định được danh tính"}, status=404)
 
     
 
