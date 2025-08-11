@@ -58,7 +58,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'salary',
     "channels",
-    "app"
+    "worklocation",
 ]
 
 MIDDLEWARE = [

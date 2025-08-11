@@ -41,9 +41,8 @@ import asyncio
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.core.files.base import ContentFile
 import base64
-# from app.face_re.models import FaceLog, FaceEmbedding, FaceRecognitionFailure
-from app.facerecognition.models import FaceLog, FaceEmbedding, FaceRecognitionFailure
-from app.employee.models import Employee
+from facerecognition.models import FaceLog, FaceEmbedding, FaceRecognitionFailure
+from employee.models import Employee
 import face_recognition
 import numpy as np
 from channels.db import database_sync_to_async

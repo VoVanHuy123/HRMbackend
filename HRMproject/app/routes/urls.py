@@ -5,6 +5,7 @@ from employee.views import *
 from salary.views import BaseSalaryViewset,SalaryGradeViewset,PayrollViewset,WorkStandardViewset
 from timesheet.views import *
 from facerecognition.views import *
+from worklocation.views import *
 
 
 routers = DefaultRouter()
@@ -32,6 +33,7 @@ routers.register('insurances',InsuranceViewset,basename="insurance")
 routers.register('face_reconition_trains',FaceRecognitionViewset,basename="face_reconition_train")
 
 routers.register('face_embeddings',FaceEmbeddingViewset,basename="face_embedding")
+routers.register('work_locations',WorklocationViewsets,basename="work_location")
 
 urlpatterns = [
     path('', include(routers.urls)),
