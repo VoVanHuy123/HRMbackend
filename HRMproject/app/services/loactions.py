@@ -1,7 +1,10 @@
 import math
-from worklocation.models import WorkLocation
+from worklocation.models import WorkLocation,OfficeLocation
 from django.utils import timezone
 from django.core.exceptions import ObjectDoesNotExist
+
+def get_office_location_by_id(id):
+    return OfficeLocation.objects.get(id)
 
 def get_work_location_by_employee_and_date(employee, date=None):
     """

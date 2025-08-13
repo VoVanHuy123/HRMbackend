@@ -19,6 +19,8 @@ class Timesheet(BaseModel):
     lunch_break = models.IntegerField(default=1)
     total_working_hours = models.FloatField(default=0.0)
     work_coefficient = models.FloatField(default=0.0)
+    is_ordinary = models.BooleanField(default=True)
+    note = models.TextField(null=True,blank=True)
 
     # Foreign_key
     work_type = models.ForeignKey("WorkType", on_delete=models.SET_NULL, null=True, blank=True, related_name='timesheet', verbose_name="WorkType")
@@ -34,34 +36,38 @@ class Timesheet(BaseModel):
             self.month = self.date.month
             
         if self.time_in and self.time_out:
-            dt_time_in = datetime.combine(self.date, self.time_in)
-            dt_time_out = datetime.combine(self.date, self.time_out)
-            
-            # Handle overnight shift
-            if dt_time_out < dt_time_in:
-                dt_time_out += timedelta(days=1)
-            
-            worked_minutes = (dt_time_out - dt_time_in).total_seconds() / 60
-            
-            # xác định 12h trưa
-            noon_time = datetime.combine(self.date, time(12, 0))
-            
-            # kiểm tra nếu ca không vắt qua buổi trưa
-            if dt_time_in >= noon_time or dt_time_out <= noon_time:
-                lunch_break_minutes = 0  # không trừ lunch
-            else:
-                lunch_break_minutes = self.lunch_break * 60
-            
-            worked_minutes -= (self.extra_break_minutes + lunch_break_minutes)
-            self.total_working_hours = round(worked_minutes / 60, 2)
+            if (self.is_ordinary):
+                dt_time_in = datetime.combine(self.date, self.time_in)
+                dt_time_out = datetime.combine(self.date, self.time_out)
+                
+                # Handle overnight shift
+                if dt_time_out < dt_time_in:
+                    dt_time_out += timedelta(days=1)
+                
+                worked_minutes = (dt_time_out - dt_time_in).total_seconds() / 60
+                
+                # xác định 12h trưa
+                noon_time = datetime.combine(self.date, time(12, 0))
+                
+                # kiểm tra nếu ca không vắt qua buổi trưa
+                if dt_time_in >= noon_time or dt_time_out <= noon_time:
+                    lunch_break_minutes = 0  # không trừ lunch
+                else:
+                    lunch_break_minutes = self.lunch_break * 60
+                
+                worked_minutes -= (self.extra_break_minutes + lunch_break_minutes)
+                self.total_working_hours = round(worked_minutes / 60, 2)
 
-            coeff = (worked_minutes / 60) / 7.5
-            if coeff > 1:
-                self.work_coefficient = 1
+                coeff = (worked_minutes / 60) / 7.5
+                if coeff > 1:
+                    self.work_coefficient = 1
+                else:
+                    self.work_coefficient = round(coeff, 4)
             else:
-                self.work_coefficient = round(coeff, 2)
+                coeff = self.total_working_hours / 7.5
+                self.work_coefficient = round(coeff, 4)
         else:
-            self.total_working_hours = 0.0
+            self.work_coefficient = 0
             
         super().save(*args, **kwargs)
 

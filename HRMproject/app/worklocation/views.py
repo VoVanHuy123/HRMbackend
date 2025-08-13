@@ -3,16 +3,25 @@ from django.shortcuts import render
 import requests
 from rest_framework import viewsets,generics,permissions
 from app.user.permisions import IsAdmin,IsAdminOrOwner
-from .models import WorkLocation
-from .serializers import WorkLocationSerializer,CreateWorkLocationSerializer
+from .models import WorkLocation,OfficeLocation
+from .serializers import WorkLocationSerializer,CreateWorkLocationSerializer,UpdateWorkLocationSerializer,OfficeLocationSerializer
 
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
-from services.loactions import haversine,get_work_location_by_employee_and_date
+from services.loactions import *
 
 # Create your views here.
+class OfficeLocationViewsets(viewsets.ViewSet,generics.ListCreateAPIView):
+    queryset = OfficeLocation.objects.all()
+    permission_classes = [IsAdmin]
+    serializer_class = OfficeLocationSerializer
+    def get_permissions(self):
+        if self.action=='list':
+            return [permissions.IsAuthenticated()]
+        return super().get_permissions()
+    
 class WorklocationViewsets(viewsets.ViewSet,generics.ListCreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
     queryset = WorkLocation.objects.all()
     serializer_class = WorkLocationSerializer
@@ -21,13 +30,15 @@ class WorklocationViewsets(viewsets.ViewSet,generics.ListCreateAPIView,generics.
     def get_queryset(self):
         user = self.request.user
         if hasattr(user, 'role') and user.role == "Employee":
-            WorkLocation.objects.filter(emplyee = user.employee)
+            return WorkLocation.objects.filter(employee=user.employee)
         return super().get_queryset()
     
 
     def get_serializer_class(self):
         if self.action in ['create']:
             return CreateWorkLocationSerializer
+        if self.action in ['update',"partial_update"]:
+            return UpdateWorkLocationSerializer
         return super().get_serializer_class()
     def get_permissions(self):
         if self.action in ['update','partial_update','delete']:
@@ -49,11 +60,14 @@ class WorklocationViewsets(viewsets.ViewSet,generics.ListCreateAPIView,generics.
         work_location = get_work_location_by_employee_and_date(employee, timezone.now().date())
         if not work_location:
             return Response({"error": "Chưa đăng ký vị trí làm việc cho ngày hôm nay"}, status=status.HTTP_400_BAD_REQUEST)
-
+        if work_location.status != 'Approved':
+            return Response({"error": "Chưa được chấp nhận"}, status=status.HTTP_400_BAD_REQUEST)
         # Lấy dữ liệu latitude, longitude từ request
         try:
             user_lat = float(request.data.get('latitude'))
             user_lng = float(request.data.get('longitude'))
+            print(user_lat,user_lng)
+            print(float(work_location.latitude), float(work_location.longitude))
         except (TypeError, ValueError):
             return Response({"error": "Latitude và longitude không hợp lệ hoặc bị thiếu"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -65,9 +79,43 @@ class WorklocationViewsets(viewsets.ViewSet,generics.ListCreateAPIView,generics.
         radius = 1000
 
         if distance <= radius:
-            return Response({"status": "OK", "distance": distance})
+            return Response({"status": "OK", "distance": distance},status=status.HTTP_200_OK )
         else:
             return Response({"status": "FAIL", "distance": distance}, status=status.HTTP_403_FORBIDDEN)
+        
+    # @action(detail=False, methods=["post"], url_path="check_daily_location")
+    # def check_daily_location(self, request, pk=None):
+    #     user = request.user
+
+    #     # Lấy employee từ user (nếu user có liên kết employee)
+    #     employee = getattr(user, 'employee', None)
+    #     if not employee:
+    #         return Response({"error": "User chưa liên kết với nhân viên"}, status=status.HTTP_400_BAD_REQUEST)
+
+    #     # Lấy vị trí văn phòng
+    #     office_location = float(request.data.get('latitude'))
+    #     work_location = get_office_location_by_id()
+    #     if not work_location:
+    #         return Response({"error": "Chưa đăng ký vị trí làm việc cho ngày hôm nay"}, status=status.HTTP_400_BAD_REQUEST)
+
+    #     # Lấy dữ liệu latitude, longitude từ request
+    #     try:
+    #         user_lat = float(request.data.get('latitude'))
+    #         user_lng = float(request.data.get('longitude'))
+    #     except (TypeError, ValueError):
+    #         return Response({"error": "Latitude và longitude không hợp lệ hoặc bị thiếu"}, status=status.HTTP_400_BAD_REQUEST)
+
+    #     # Tính khoảng cách
+    #     distance = haversine(user_lat, user_lng, float(work_location.latitude), float(work_location.longitude))
+
+    #     # So sánh với radius cho phép (nếu bạn có trường này)
+    #     # radius = getattr(work_location, 'radius', 1000)  # Mặc định 100 mét nếu không có
+    #     radius = 1000
+
+    #     if distance <= radius:
+    #         return Response({"status": "OK", "distance": distance})
+    #     else:
+    #         return Response({"status": "FAIL", "distance": distance}, status=status.HTTP_403_FORBIDDEN)
 
 
     @action(detail=False, methods=["get"], url_path="search_address")

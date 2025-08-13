@@ -47,7 +47,7 @@ class LeaveRequestSerializers(serializers.ModelSerializer):
 class CreateLeaveRequestSerializers(serializers.ModelSerializer):
     class Meta:
         model = LeaveRequest
-        fields = ['id','content','date','employee']
+        fields = ['id','content','date','employee',"status"]
 class ShifTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShiftType

@@ -35,6 +35,9 @@ routers.register('face_reconition_trains',FaceRecognitionViewset,basename="face_
 routers.register('face_embeddings',FaceEmbeddingViewset,basename="face_embedding")
 routers.register('work_locations',WorklocationViewsets,basename="work_location")
 
+
+routers.register('office_locations',OfficeLocationViewsets,basename="office_location")
+
 urlpatterns = [
     path('', include(routers.urls)),
 

@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from cloudinary.uploader import upload
 import numpy as np
 from datetime import datetime, date
-from django.utils.timezone import now
+from django.utils import timezone
 import io
 from PIL import Image
 import base64
@@ -18,6 +18,7 @@ from .models import (
     FaceEmbedding,
     FaceRecognitionFailure,
     FaceLog,
+    FaceTrackingSession
 )
 from employee.models import (
     Employee
@@ -39,7 +40,7 @@ from timesheet.serializers import (
 class FaceRecognitionViewset(viewsets.ViewSet):
     permission_classes = [IsAdmin]
     def get_permissions(self):
-        if(self.action in ["VerifyIdentity","OvertimeVerifyIdentity"]):
+        if(self.action in ["VerifyIdentity","OvertimeVerifyIdentity",'verify_face_tracking_sessions']):
             return [permissions.IsAuthenticated()]
         return super().get_permissions()
     @action(detail=False,methods=["post"], url_path="post_face_images")
@@ -350,6 +351,66 @@ class FaceRecognitionViewset(viewsets.ViewSet):
             return Response({"error": "Không xác định được danh tính"}, status=404)
 
     
+    @action(detail=False, methods=["post"], url_path="verify_face_tracking_sessions")
+    def verify_face_tracking_sessions(self, request, *args, **kwargs):
+        today = timezone.localdate()
+        employee_id = request.data.get("employee_id")
+
+        if not employee_id:
+            return Response({"error": "employee_id is required"}, status=400)
+        employee = Employee.objects.filter(id=employee_id).first()
+        if not employee:
+            return Response({"error": "Không tìm thấy nhân viên"}, status=404)
+        
+        work_type_id = request.data.get("work_type_id")
+        if not work_type_id:
+            return Response({"error": "Thiếu work_type_id"}, status=400)
+        work_type = WorkType.objects.filter(id=work_type_id).first()
+        
+        # Lấy timesheet của nhân viên trong ngày
+        timesheet = Timesheet.objects.filter(
+            employee=employee,
+            date=today
+        ).first()
+
+        if not timesheet:
+            return Response({"error": "Chưa bắt đầu công việc"}, status=404)
+
+
+        # Lấy tất cả sessions trong ngày
+        sessions = FaceTrackingSession.objects.filter(
+            employee=employee,
+            start_time__date=today
+        ).order_by("start_time")
+
+        if not sessions.exists():
+            return Response({"error": "No face tracking sessions found"}, status=404)
+
+        total_seconds = 0
+        for session in sessions:
+            if session.end_time:
+                total_seconds += (session.end_time - session.start_time).total_seconds()
+            else:
+                total_seconds += (timezone.now() - session.start_time).total_seconds()
+
+        total_hours = round(total_seconds / 3600, 2)
+
+        
+
+        # Cập nhật dữ liệu timesheet
+        last_session_end = sessions.last().end_time or timezone.now()
+        timesheet.time_out = last_session_end.time()
+        timesheet.total_working_hours = total_hours
+        timesheet.work_type = work_type
+        timesheet.save()
+
+        return Response({
+            "message": "Timesheet updated successfully",
+            "total_working_hours": total_hours,
+            "time_out": timesheet.time_out,
+            "work_coefficient": timesheet.work_coefficient
+        })
+
 
 class FaceEmbeddingViewset (viewsets.ViewSet,generics.ListAPIView):
     queryset = FaceEmbedding.objects.all()

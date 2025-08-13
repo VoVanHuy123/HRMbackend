@@ -85,7 +85,7 @@ class CommendationDisciplineViewsets(viewsets.ViewSet, generics.CreateAPIView,ge
             return [permissions.IsAuthenticated()]
         return super().get_permissions()
 
-class LeaveRequestViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.UpdateAPIView):
+class LeaveRequestViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
     queryset = LeaveRequest.objects.all()
     serializer_class = LeaveRequestSerializers
     permission_classes=[permissions.IsAuthenticated]
@@ -93,7 +93,7 @@ class LeaveRequestViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.U
     filterset_class = LeaveRequestFilter
 
     def get_serializer_class(self):
-        if self.action in ["create"]:
+        if self.action in ["create","update","partial_update"]:
             return CreateLeaveRequestSerializers
         return super().get_serializer_class()
     def get_queryset(self):
@@ -115,18 +115,29 @@ class LeaveRequestViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.U
         if(self.action == "list"):
             return [IsAdminOrOwner()]
         return super().get_permissions()
-    
-    def create(self, request, *args, **kwargs):
-        # Lấy user -> employee
-        employee = request.user.employee  # Giả sử có OneToOneField giữa User và Employee
-        data = request.data.copy()
-        data['employee'] = employee.id  # Gán employee ID vào dữ liệu gửi đi
-
-        serializer = self.get_serializer(data=data)
+    def _save_and_return(self, serializer_class, instance=None, data=None, partial=False):
+        serializer = serializer_class(instance, data=data, partial=partial) if instance else serializer_class(data=data)
         serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
+        instance = serializer.save()
 
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # Load lại quan hệ employee để trả về nested
+        # instance = LeaveRequest.objects.select_related('employee').get(pk=instance.pk)
+
+        return LeaveRequestSerializers(instance).data
+
+    def create(self, request, *args, **kwargs):
+        data = self._save_and_return(CreateLeaveRequestSerializers, data=request.data)
+        return Response(data, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        data = self._save_and_return(CreateLeaveRequestSerializers, instance=instance, data=request.data)
+        return Response(data)
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        data = self._save_and_return(CreateLeaveRequestSerializers, instance=instance, data=request.data, partial=True)
+        return Response(data)
 
 
 class WorkTypeViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
