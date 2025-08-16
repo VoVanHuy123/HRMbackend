@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt /app/
 
 # Cài đặt dependencies Python
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements-cicd.txt
 
 # Copy toàn bộ project vào container
 COPY . /app/
