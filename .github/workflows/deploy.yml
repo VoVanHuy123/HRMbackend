@@ -31,7 +31,7 @@ jobs:
           docker buildx build \
             --tag hrmbackend:latest \
             --load \
-            .
+            ./HRMproject
 
       # 5️⃣ Deploy lên Render
       - name: Deploy to Render
