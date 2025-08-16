@@ -23,10 +23,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Bước test (tuỳ chọn, bạn có thể bỏ nếu chưa cần)
-      # - name: Run Django tests
-      #   run: |
-      #     python manage.py test || echo "Tests failed but continue"
 
       # Trigger Render Deploy Hook
       - name: Trigger Render Deploy
