@@ -14,9 +14,10 @@ WORKDIR /app
 #     libpq-dev \
 #     && rm -rf /var/lib/apt/lists/*
 
-# Cài các thư viện cần thiết để build mysqlclient
+# Cài các thư viện hệ thống cần thiết
 RUN apt-get update && apt-get install -y \
-    build-essential default-libmysqlclient-dev pkg-config \
+    build-essential cmake libopenblas-dev liblapack-dev libx11-dev libgtk-3-dev \
+    default-libmysqlclient-dev pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy file requirements trước để cache khi build
