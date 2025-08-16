@@ -21,10 +21,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy file requirements trước để cache khi build
-COPY requirements.txt /app/
+COPY requirements-cicd.txt /app/
 
 # Cài đặt dependencies Python
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements-cicd.txt
 
 # Copy toàn bộ project vào container
 COPY . /app/
