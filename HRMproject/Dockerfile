@@ -8,10 +8,15 @@ ENV PYTHONUNBUFFERED 1
 # Tạo thư mục trong container để chứa code
 WORKDIR /app
 
-# Cài đặt dependencies hệ thống (nếu cần, ví dụ psycopg2, mysqlclient...)
+# # Cài đặt dependencies hệ thống (nếu cần, ví dụ psycopg2, mysqlclient...)
+# RUN apt-get update && apt-get install -y \
+#     gcc \
+#     libpq-dev \
+#     && rm -rf /var/lib/apt/lists/*
+
+# Cài các thư viện cần thiết để build mysqlclient
 RUN apt-get update && apt-get install -y \
-    gcc \
-    libpq-dev \
+    build-essential default-libmysqlclient-dev pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy file requirements trước để cache khi build
