@@ -29,6 +29,9 @@ RUN pip install --no-cache-dir -r requirements-cicd.txt
 # Copy toàn bộ project vào container
 COPY . /app/
 
+# Tạo thư mục staticfiles trước khi collectstatic
+RUN mkdir -p /app/staticfiles
+
 # Collect static files (nếu bạn dùng Django static)
 RUN python manage.py collectstatic --noinput
 
