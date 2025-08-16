@@ -117,16 +117,29 @@ CHANNEL_LAYERS = {
 #         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
 # }
+ENV = os.getenv("ENV", "development")
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv("DB_NAME"),
-        'USER': os.getenv("DB_USER"),
-        'PASSWORD': os.getenv("DB_PASSWORD"),
-        'HOST': '',
+if ENV == "production":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_POSTGRES_NAME"),
+            "USER": os.getenv("DB_POSTGRES_USER"),
+            "PASSWORD": os.getenv("DB_POSTGRES_PASSWORD"),
+            "HOST": os.getenv("DB_POSTGRES_HOST"),
+            "PORT": os.getenv("DB_POSTGRES_PORT", "5432"),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.getenv("DB_NAME"),
+            'USER': os.getenv("DB_USER"),
+            'PASSWORD': os.getenv("DB_PASSWORD"),
+            'HOST': '',
+        }
+    }
 OAUTH2_PROVIDER = {'OAUTH2_BACKEND_CLASS': 'oauth2_provider.oauth2_backends.JSONOAuthLibCore', }
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': ('oauth2_provider.contrib.rest_framework.OAuth2Authentication',),

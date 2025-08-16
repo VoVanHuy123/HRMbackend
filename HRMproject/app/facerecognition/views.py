@@ -34,7 +34,8 @@ from .serializers import(
 )
 from timesheet.serializers import (
     TimeSheetSerializers,
-    OverTimeSerializers
+    OverTimeSerializers,
+    TimeSheetEmployeeSerializers
 )
 
 class FaceRecognitionViewset(viewsets.ViewSet):
@@ -375,8 +376,11 @@ class FaceRecognitionViewset(viewsets.ViewSet):
 
         if not timesheet:
             return Response({"error": "Chưa bắt đầu công việc"}, status=404)
-
-
+        elif not timesheet.time_out == None:
+            return Response({ 
+                "message": "Đã chấm công",
+                "timesheet": TimeSheetEmployeeSerializers(timesheet).data,
+            }, status=200)
         # Lấy tất cả sessions trong ngày
         sessions = FaceTrackingSession.objects.filter(
             employee=employee,
@@ -406,9 +410,7 @@ class FaceRecognitionViewset(viewsets.ViewSet):
 
         return Response({
             "message": "Timesheet updated successfully",
-            "total_working_hours": total_hours,
-            "time_out": timesheet.time_out,
-            "work_coefficient": timesheet.work_coefficient
+            "timesheet": TimeSheetEmployeeSerializers(timesheet).data,
         })
 
 

@@ -170,6 +170,7 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
     )
     @action(methods=['post'], detail=False, permission_classes=[],url_path="refresh-token")
     def refresh_token(self, request):
+        print("Request data:", request.data)
         refresh_token_str = request.data.get("refresh_token")
         if not refresh_token_str:
             return Response({"error": "Missing refresh_token"}, status=400)

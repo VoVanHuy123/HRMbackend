@@ -21,6 +21,7 @@ class Timesheet(BaseModel):
     work_coefficient = models.FloatField(default=0.0)
     is_ordinary = models.BooleanField(default=True)
     note = models.TextField(null=True,blank=True)
+    late_minutes = models.IntegerField(default=0)
 
     # Foreign_key
     work_type = models.ForeignKey("WorkType", on_delete=models.SET_NULL, null=True, blank=True, related_name='timesheet', verbose_name="WorkType")
@@ -34,6 +35,15 @@ class Timesheet(BaseModel):
         if self.date:
             self.year = self.date.year
             self.month = self.date.month
+        # Tính số phút đi trễ
+        if self.time_in:
+            standard_time_in = time(8, 30)  # 08:30 sáng
+            if self.time_in > standard_time_in:
+                dt_standard = datetime.combine(self.date, standard_time_in)
+                dt_in = datetime.combine(self.date, self.time_in)
+                self.late_minutes = int((dt_in - dt_standard).total_seconds() / 60)
+            else:
+                self.late_minutes = 0
             
         if self.time_in and self.time_out:
             if (self.is_ordinary):

@@ -18,6 +18,13 @@ class WorkTypeserializer(serializers.ModelSerializer):
     class Meta:
         model = WorkType
         fields = ["id","name","coefficient"]
+class TimeSheetEmployeeSerializers(serializers.ModelSerializer):
+    work_type = WorkTypeserializer()
+    employee = NameEmployeeSerializer()
+    class Meta:
+        model = Timesheet
+        # fields = "__all__"
+        fields = ["id","date","employee","year","month","time_in","time_out","total_working_hours","work_coefficient","work_type"]
 class TimeSheetSerializers(serializers.ModelSerializer):
     work_type = WorkTypeserializer()
     class Meta:
