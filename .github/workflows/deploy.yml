@@ -33,10 +33,7 @@ jobs:
             --load \
             ./HRMproject
 
-      # 5️⃣ Deploy lên Render
-      - name: Deploy to Render
-        env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+       # 5️⃣ Trigger Render deploy via webhook
+      - name: Deploy to Render via Webhook
         run: |
-          curl -X POST "https://api.render.com/deploy/srv-xxxxxxxxxxxx" \
-          -H "Authorization: Bearer $RENDER_API_KEY"
+          curl -X POST "https://api.render.com/deploy/srv-d2g2u0ndiees73d0ekng?key=9u0HJqTpqws"
