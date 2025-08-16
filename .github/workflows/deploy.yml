@@ -3,7 +3,7 @@ name: Build & Deploy to Render
 on:
   push:
     branches:
-      - main  # khi push vào main branch
+      - main  # Chạy khi push vào main
 
 jobs:
   build-and-deploy:
@@ -18,30 +18,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # 3️⃣ Cache Docker layers (dlib + pip)
-      - name: Cache Docker layers
+      # 3️⃣ Cache pip packages để build nhanh hơn
+      - name: Cache pip packages
         uses: actions/cache@v3
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-docker-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-docker-
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
 
-      # 4️⃣ Build Docker image với cache
+      # 4️⃣ Build Docker image
       - name: Build Docker image
         run: |
-          docker build \
-            --cache-from=type=local,src=/tmp/.buildx-cache \
-            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
-            -t hrmbackend:latest .
+          docker buildx build \
+            --tag hrmbackend:latest \
+            --load \
+            .
 
-      # 5️⃣ Lưu cache mới
-      - name: Save Docker cache
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-
-      # 6️⃣ Deploy lên Render
+      # 5️⃣ Deploy lên Render
       - name: Deploy to Render
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
