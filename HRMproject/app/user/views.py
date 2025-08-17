@@ -17,6 +17,7 @@ import requests
 from user.serializers import UserSerializer,LoginSerializer,CreateUserSerializer, RefreshTokenSerializer
 from rest_framework import status
 import cloudinary.uploader
+from django.core.management import call_command
 
 
 
@@ -116,52 +117,6 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
     
     from user.serializers import RefreshTokenSerializer
 
-    # @swagger_auto_schema(
-    #     method='post',
-    #     request_body=RefreshTokenSerializer,
-    #     # responses={200: 'New access token'},
-    #     operation_description="Làm mới access token bằng refresh_token"
-    # )
-    # @action(methods=['post'], detail=False, permission_classes=[], url_path="refresh-token")
-    # def refresh_token(self, request):
-    #     refresh_token_str = request.data.get("refresh_token")
-    #     if not refresh_token_str:
-    #         return Response({"error": "Missing refresh_token"}, status=400)
-
-    #     try:
-    #         old_refresh_token = RefreshToken.objects.get(token=refresh_token_str)
-    #         user = old_refresh_token.user
-    #         application = old_refresh_token.application
-    #     except RefreshToken.DoesNotExist:
-    #         return Response({"error": "Invalid refresh_token"}, status=400)
-
-    #     # Xoá token cũ (tuỳ bạn)
-    #     AccessToken.objects.filter(user=user, application=application).delete()
-    #     RefreshToken.objects.filter(token=refresh_token_str).delete()
-
-    #     # Tạo token mới giống login
-    #     access_token = AccessToken.objects.create(
-    #         user=user,
-    #         application=application,
-    #         token=generate_token(),
-    #         expires=now() + datetime.timedelta(seconds=3600),
-    #         scope="read write"
-    #     )
-
-    #     refresh_token = RefreshToken.objects.create(
-    #         user=user,
-    #         application=application,
-    #         token=generate_token(),
-    #         access_token=access_token
-    #     )
-
-    #     return Response({
-    #         "access_token": access_token.token,
-    #         "token_type": "Bearer",
-    #         "expires_in": 3600,
-    #         "refresh_token": refresh_token.token,
-    #         "user": UserSerializer(user).data
-    #     })
     @swagger_auto_schema(
         method='post',
         request_body=RefreshTokenSerializer,
@@ -209,3 +164,47 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
             "expires_in": 3600,
             "refresh_token": refresh_token.token
         })
+
+
+    def initialize_system(request):
+        """
+        API khởi tạo hệ thống:
+        - Tạo/migrate tất cả bảng database
+        - Tạo nhóm quyền 'admin' nếu chưa có
+        - Tạo tài khoản admin mặc định
+        """
+        try:
+            # 1. Migrate database
+            call_command('makemigrations')
+            call_command('migrate')
+            
+           
+            # 3. Tạo user admin nếu chưa tồn tại
+            if not User.objects.filter(username='admin').exists():
+                admin = User.objects.create_superuser(
+                    username='admin',
+                    email='admin@example.com',
+                    password='admin',
+                    first_name='admin',
+                    last_name='admin',
+                    role='Admin'
+                )
+                admin.save()
+                return Response({
+                    'message': 'System initialized successfully',
+                    'admin_created': True,
+                    'admin_credentials': {
+                        'username': 'admin',
+                        'password': 'admin'
+                    }
+                }, status=status.HTTP_201_CREATED)
+            else:
+                return Response({
+                    'message': 'System already initialized',
+                    'admin_created': False
+                }, status=status.HTTP_200_OK)
+                
+        except Exception as e:
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
