@@ -1,6 +1,6 @@
 from django.db import models
 from HRMproject.models import BaseModel
-from django_mysql.models import EnumField
+# from django_mysql.models import EnumField
 from datetime import datetime, timedelta
 from django.utils import timezone
 from datetime import time
@@ -157,7 +157,13 @@ class CommendationDiscipline(BaseModel):
     # code = models.CharField(max_length=50, unique=True, verbose_name="Record Code") # Assuming a unique code for each record
     content = models.TextField(verbose_name="Content")
     date = models.DateField(verbose_name="Date")
-    record_type = EnumField(choices=RecordType.choices, default=RecordType.COMMENDATION)
+    # record_type = EnumField(choices=RecordType.choices, default=RecordType.COMMENDATION)
+    # Dùng CharField thay vì EnumField
+    record_type = models.CharField(
+        max_length=20,
+        choices=RecordType.choices,
+        default=RecordType.COMMENDATION
+    )
     amount = models.FloatField(default=0.0)
     class Meta:
         verbose_name = "Commendation/Discipline"
@@ -177,7 +183,13 @@ class SalaryAdvance(BaseModel):
     date = models.DateField(verbose_name="Date")
     month = models.IntegerField(verbose_name="Month",null=True)
     year = models.IntegerField(verbose_name="Year",null=True)
-    status = EnumField(choices=StatusType.choices, default=StatusType.PENDING)# e.g., 'Approved', 'Pending'
+    # status = EnumField(choices=StatusType.choices, default=StatusType.PENDING)# e.g., 'Approved', 'Pending'
+    # Dùng CharField thay vì EnumField
+    status = models.CharField(
+        max_length=20,
+        choices=StatusType.choices,
+        default=StatusType.PENDING
+    )
     amount = models.FloatField(verbose_name="Amount",default=0.0)
 
     class Meta:
@@ -209,7 +221,12 @@ class AllowanceType(BaseModel):
 class LeaveRequest(BaseModel):
     content = models.TextField()
     date = models.DateField(null=False)
-    status = EnumField(choices=StatusType,default=StatusType.PENDING)
+    # status = EnumField(choices=StatusType,default=StatusType.PENDING)
+    status = models.CharField(
+        max_length=20,
+        choices=StatusType.choices,
+        default=StatusType.PENDING
+    )
     employee = models.ForeignKey("employee.Employee", on_delete=models.CASCADE, related_name="leave_requests")
     
     class Meta:

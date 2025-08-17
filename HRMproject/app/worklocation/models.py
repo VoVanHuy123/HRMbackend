@@ -3,7 +3,7 @@ from employee.models import Employee
 from HRMproject.models import BaseModel
 from django.utils import timezone
 from timesheet.models import StatusType
-from django_mysql.models import EnumField
+# from django_mysql.models import EnumField
 from datetime import datetime
 
 # Create your models here.
@@ -15,7 +15,12 @@ class WorkLocation(BaseModel):
     description = models.CharField(max_length=255,null=True,blank=True)  # Tên địa điểm (VD: Văn phòng HCM)
     latitude = models.DecimalField(max_digits=9, decimal_places=6)  # Vĩ độ
     longitude = models.DecimalField(max_digits=9, decimal_places=6)  # Kinh độ
-    status = EnumField(choices=StatusType.choices, default=StatusType.PENDING)
+    # status = EnumField(choices=StatusType.choices, default=StatusType.PENDING)
+    status = models.CharField(
+        max_length=20,
+        choices=StatusType.choices,
+        default=StatusType.PENDING
+    )
     # radius = models.IntegerField(default=100)  # Bán kính cho phép (m)
 
     class Meta:
