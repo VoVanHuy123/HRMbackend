@@ -2,8 +2,8 @@
 FROM python:3.12-slim
 
 # Đặt biến môi trường để tránh Python lưu cache
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 # Tạo thư mục trong container để chứa code
 WORKDIR /app
@@ -16,9 +16,15 @@ WORKDIR /app
 
 # Cài các thư viện hệ thống cần thiết
 RUN apt-get update && apt-get install -y \
-    build-essential cmake libopenblas-dev liblapack-dev libx11-dev libgtk-3-dev \
-    default-libmysqlclient-dev pkg-config \
+        build-essential cmake libopenblas-dev liblapack-dev libx11-dev libgtk-3-dev \
+        default-libmysqlclient-dev pkg-config \
+        libpq-dev python3-dev && \ 
     && rm -rf /var/lib/apt/lists/*
+
+# Thêm sau các lệnh RUN trong Dockerfile:
+RUN apt-get autoremove -y && \
+    apt-get clean -y && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy file requirements trước để cache khi build
 COPY requirements-cicd.txt /app/

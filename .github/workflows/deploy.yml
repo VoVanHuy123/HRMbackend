@@ -86,5 +86,4 @@ jobs:
       # 7️⃣ Trigger Render để pull Docker image mới
       - name: Trigger Render pull image via webhook
         run: |
-          curl -X POST "https://api.render.com/deploy/srv-xxxxxxxxxxxx" \
-          -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}"
+          curl -X POST "https://api.render.com/deploy/srv-d2gkgqgdl3ps73fdm8hg?key=Am5PeLddS1A"
