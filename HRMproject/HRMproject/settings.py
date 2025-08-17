@@ -49,6 +49,7 @@ if ENV == "production":
         'django.contrib.messages',
         'django.contrib.staticfiles',
         "django.contrib.postgres",
+        'django_mysql',
         'oauth2_provider',
         'drf_yasg',
         'user',
