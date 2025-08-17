@@ -23,6 +23,8 @@ RUN apt-get update && apt-get install -y \
         libpq-dev python3-dev \
         gcc \
     && rm -rf /var/lib/apt/lists/*
+# Cài đặt psycopg2 từ source (ổn định nhất)
+RUN pip install psycopg2==2.9.9 --no-binary psycopg2
 
 # Thêm sau các lệnh RUN trong Dockerfile:
 RUN apt-get autoremove -y && \
