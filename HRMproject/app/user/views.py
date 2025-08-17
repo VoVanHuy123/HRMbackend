@@ -214,3 +214,40 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
                 'error': str(e),
                 'traceback': traceback.format_exc()
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    @action(methods=['post'], detail=False, url_path="reset_database")
+    def reset_database(self, request):
+        """
+        Xóa toàn bộ bảng + tạo lại schema mới
+        WARNING: Xóa sạch dữ liệu!
+        """
+        from django.db import connection
+        from django.core.management import call_command
+        import traceback
+
+        try:
+            # 1. Drop schema
+            with connection.cursor() as cursor:
+                cursor.execute("DROP SCHEMA public CASCADE;")
+                cursor.execute("CREATE SCHEMA public;")
+
+            # 2. Chạy migrate lại
+            call_command('migrate', interactive=False)
+
+            # 3. Tạo admin user mặc định
+            User = get_user_model()
+            if not User.objects.filter(username='admin').exists():
+                User.objects.create_superuser(
+                    username='admin',
+                    email='admin@example.com',
+                    password='admin@123'
+                )
+
+            return Response({
+                "message": "Database reset successfully. Admin user created (admin/admin@123)"
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                "error": str(e),
+                "traceback": traceback.format_exc()
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
