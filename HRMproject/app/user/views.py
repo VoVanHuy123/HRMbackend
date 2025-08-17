@@ -165,7 +165,7 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
             "refresh_token": refresh_token.token
         })
 
-
+    @action(methods=['post'], detail=False,url_path="initialize_system")
     def initialize_system(request):
         """
         API khởi tạo hệ thống:
