@@ -18,7 +18,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
         build-essential cmake libopenblas-dev liblapack-dev libx11-dev libgtk-3-dev \
         default-libmysqlclient-dev pkg-config \
-        libpq-dev python3-dev gcc \ 
+        libpq-dev python3-dev \
+        gcc \
     && rm -rf /var/lib/apt/lists/*
 
 # Thêm sau các lệnh RUN trong Dockerfile:
