@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y \
         build-essential cmake libopenblas-dev liblapack-dev libx11-dev libgtk-3-dev \
         default-libmysqlclient-dev pkg-config \
         libpq-dev python3-dev \
-        gcc \
+        gcc postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 # Cài đặt psycopg2 từ source (ổn định nhất)
 RUN pip install psycopg2==2.9.9 --no-binary psycopg2

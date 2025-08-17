@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework import viewsets,generics,parsers
 from rest_framework.decorators import action
 from drf_yasg.utils import swagger_auto_schema
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate,get_user_model
 from oauth2_provider.models import AccessToken, RefreshToken, Application
 from oauthlib.common import generate_token
 from django.utils.timezone import now
@@ -165,46 +165,52 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
             "refresh_token": refresh_token.token
         })
 
-    @action(methods=['post'], detail=False,url_path="initialize_system")
-    def initialize_system(self,request):
+    @action(methods=['post'], detail=False, url_path="initialize_system")
+    def initialize_system(self, request):
         """
         API khởi tạo hệ thống:
         - Tạo/migrate tất cả bảng database
-        - Tạo nhóm quyền 'admin' nếu chưa có
         - Tạo tài khoản admin mặc định
         """
         try:
-            # 1. Migrate database
-            call_command('makemigrations')
-            call_command('migrate')
+            # 1. Kết nối database trước khi migrate
+            from django.db import connection
+            connection.ensure_connection()
             
-           
-            # 3. Tạo user admin nếu chưa tồn tại
+            # 2. Migrate database
+            from django.core.management import call_command
+            call_command('makemigrations', interactive=False)
+            call_command('migrate', interactive=False)
+            
+            # 3. Tạo superuser (cách an toàn hơn)
+            User = get_user_model()
             if not User.objects.filter(username='admin').exists():
-                admin = User.objects.create_superuser(
+                admin = User.objects.create_user(
                     username='admin',
                     email='admin@example.com',
-                    password='admin',
-                    first_name='admin',
-                    last_name='admin',
-                    role='Admin'
+                    password='admin@123',
+                    first_name='Admin',
+                    last_name='System',
+                    role='admin',
+                    is_staff=True,
+                    is_superuser=True
                 )
-                admin.save()
                 return Response({
                     'message': 'System initialized successfully',
                     'admin_created': True,
                     'admin_credentials': {
                         'username': 'admin',
-                        'password': 'admin'
+                        'password': 'admin@123'  # Khuyến nghị dùng password mạnh
                     }
                 }, status=status.HTTP_201_CREATED)
-            else:
-                return Response({
-                    'message': 'System already initialized',
-                    'admin_created': False
-                }, status=status.HTTP_200_OK)
-                
-        except Exception as e:
             return Response({
-                'error': str(e)
+                'message': 'System already initialized',
+                'admin_created': False
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            import traceback
+            return Response({
+                'error': str(e),
+                'traceback': traceback.format_exc()
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
