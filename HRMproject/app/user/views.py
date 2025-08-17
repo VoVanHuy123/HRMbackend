@@ -166,7 +166,7 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
         })
 
     @action(methods=['post'], detail=False,url_path="initialize_system")
-    def initialize_system(request):
+    def initialize_system(self,request):
         """
         API khởi tạo hệ thống:
         - Tạo/migrate tất cả bảng database
