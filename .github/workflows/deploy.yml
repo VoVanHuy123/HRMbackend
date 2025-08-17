@@ -121,5 +121,4 @@ jobs:
 
       - name: Trigger Render
         run: |
-          curl -X POST "https://api.render.com/deploy/srv-d2gkgqgdl3ps73fdm8hg" \
-            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}"
+          curl -X POST "https://api.render.com/deploy/srv-d2gkgqgdl3ps73fdm8hg?key=Am5PeLddS1A" 
