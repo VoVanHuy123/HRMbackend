@@ -44,7 +44,7 @@ COPY . /app/
 RUN mkdir -p /app/staticfiles
 
 # Collect static files (nếu bạn dùng Django static)
-RUN python manage.py collectstatic --noinput
+# RUN python manage.py collectstatic --noinput
 
 # # Chạy ứng dụng với Gunicorn (thay myproject.wsgi bằng tên app của bạn)
 # CMD ["gunicorn", "myproject.wsgi:application", "--bind", "0.0.0.0:8000"]
