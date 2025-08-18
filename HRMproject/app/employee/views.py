@@ -184,14 +184,14 @@ class DepartmentViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.Upd
         serializer = DivisionSerializer(divisions, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-class DivisionViewset(viewsets.ViewSet,generics.CreateAPIView):
+class DivisionViewset(viewsets.ViewSet,generics.CreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
     queryset = Division.objects.all()
     serializer_class = DivisionSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    def get_permissions(self):
-        if self.action == "create":
-            return [IsAdmin()]
-        return super().get_permissions()
+    permission_classes = [IsAdmin]
+    # def get_permissions(self):
+    #     if self.action == "create":
+    #         return [IsAdmin()]
+    #     return super().get_permissions()
 class QualificationViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.UpdateAPIView,generics.DestroyAPIView):
     queryset = Qualification.objects.all()
     serializer_class = QualificationSerializer

@@ -66,20 +66,18 @@ class CommendationDisciplineViewsets(viewsets.ViewSet, generics.CreateAPIView,ge
     permission_classes = [IsAdmin]
     filter_backends = [DjangoFilterBackend]
     filterset_class = CommendationDisciplineFilter
-    def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())  # <- áp dụng filter từ query params
-        commendations = queryset.filter(record_type='commendation')
-        disciplines = queryset.filter(record_type='discipline')
-        return Response({
-            "commendations": CommendationDisciplineSerializers(commendations, many=True).data,
-            "disciplines": CommendationDisciplineSerializers(disciplines, many=True).data
-        })
-
-
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return CommendationDiscipline.objects.none()
+        user = self.request.user
+        if hasattr(user, 'role') and user.role == "Admin":
+            return CommendationDiscipline.objects.all()
+        return Timesheet.objects.filter(employee=user.employee)
     def get_serializer_class(self):
-        if self.action in ["update","partial_update"]:
-            return UpdateCommendationDisciplineSerializers
+        if self.action in ['create',"update","partial_update"]:
+            return CreateCommendationDisciplineSerializers
         return super().get_serializer_class()
+
     def get_permissions(self):
         if self.action in ['list']:
             return [permissions.IsAuthenticated()]

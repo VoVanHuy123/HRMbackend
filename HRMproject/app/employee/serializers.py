@@ -142,7 +142,10 @@ class DepartmentSerializer(serializers.ModelSerializer):
 class DivisionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Division
-        fields = ["id","name",]
+        fields = ["id","name","department"]
+        extra_kwargs ={
+            "department":{'required':False},
+        }
 class QualificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Qualification

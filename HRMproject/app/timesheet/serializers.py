@@ -42,10 +42,14 @@ class CommendationDisciplineSerializers(serializers.ModelSerializer):
     class Meta:
         model = CommendationDiscipline
         fields = ['id', 'employee', 'content', 'date', 'record_type', 'amount']
-class UpdateCommendationDisciplineSerializers(serializers.ModelSerializer):
+        extra_kwargs ={
+            "employee":{'required':False},
+        }
+class CreateCommendationDisciplineSerializers(serializers.ModelSerializer):
     class Meta:
         model = CommendationDiscipline
-        fields = ['id', 'content', 'date', 'record_type', 'amount']
+        fields = ['id',"employee", 'content', 'date', 'record_type', 'amount']
+
 class LeaveRequestSerializers(serializers.ModelSerializer):
     employee = NameEmployeeSerializer()
     class Meta:
