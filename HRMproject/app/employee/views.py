@@ -165,7 +165,7 @@ class DepartmentViewset(viewsets.ViewSet,generics.ListCreateAPIView,generics.Upd
     permission_classes = [permissions.IsAuthenticated]
     def get_permissions(self):
         if self.action == "create":
-            return [IsAdmin]
+            return [IsAdmin()]
         return super().get_permissions()
     
     @swagger_auto_schema(
