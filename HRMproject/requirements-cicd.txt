@@ -58,3 +58,4 @@ urllib3==2.5.0
 wheel==0.45.1
 zope.interface==7.2
 psycopg2==2.9.9
+channels_redis==4.2.0

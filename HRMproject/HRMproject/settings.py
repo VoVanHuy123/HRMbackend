@@ -35,9 +35,11 @@ ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS","localhost,127.0.0.1").split(",")
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:5174"
+    "https://hrmbackend-hlu5.onrender.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://hrmbackend-hlu5.onrender.com",
+    "http://localhost:5173",
 ]
 
 # Application definition

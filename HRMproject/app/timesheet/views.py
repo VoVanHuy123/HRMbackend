@@ -72,7 +72,7 @@ class CommendationDisciplineViewsets(viewsets.ViewSet, generics.CreateAPIView,ge
         user = self.request.user
         if hasattr(user, 'role') and user.role == "Admin":
             return CommendationDiscipline.objects.all()
-        return Timesheet.objects.filter(employee=user.employee)
+        return CommendationDiscipline.objects.filter(employee=user.employee)
     def get_serializer_class(self):
         if self.action in ['create',"update","partial_update"]:
             return CreateCommendationDisciplineSerializers
