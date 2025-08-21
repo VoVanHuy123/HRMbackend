@@ -7,11 +7,6 @@ def get_office_location_by_id(id):
     return OfficeLocation.objects.get(id)
 
 def get_work_location_by_employee_and_date(employee, date=None):
-    """
-    Lấy WorkLocation theo employee và date.
-    Nếu date là None thì lấy mặc định là hôm nay.
-    Trả về instance WorkLocation hoặc None nếu không có.
-    """
     if date is None:
         date = timezone.now().date()
 
@@ -21,10 +16,6 @@ def get_work_location_by_employee_and_date(employee, date=None):
     except ObjectDoesNotExist:
         return None
 def haversine(lat1, lon1, lat2, lon2):
-    """
-    Tính khoảng cách giữa 2 điểm trên Trái Đất theo tọa độ latitude và longitude.
-    Trả về khoảng cách đơn vị mét.
-    """
     R = 6371e3  # Bán kính Trái Đất tính bằng mét
 
     phi1 = math.radians(lat1)

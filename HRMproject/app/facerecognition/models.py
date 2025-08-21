@@ -40,6 +40,7 @@ class FaceLog(BaseModel):
 class FaceTrainingImage(models.Model):
     employee = models.ForeignKey("employee.Employee", on_delete=models.CASCADE, related_name="training_images")
     image = CloudinaryField('image',null=True,blank=True)
+    embedding = models.BinaryField(verbose_name="Embedding",null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

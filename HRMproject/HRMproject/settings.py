@@ -34,7 +34,7 @@ DEBUG = True
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS","localhost,127.0.0.1").split(",")
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    "http://localhost:5174"
+    "http://localhost:5174",
     "https://hrmbackend-hlu5.onrender.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
@@ -124,9 +124,7 @@ CHANNEL_LAYERS = {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
             "hosts": [
-                # "rediss://default:<PASSWORD>@<HOST>:<PORT>"
-                # "redis://default:emkpK66MZgCqQgWnO9P2lOplAeWOsPby@redis-19134.c84.us-east-1-2.ec2.redns.redis-cloud.com:19134"
-                os.getenv('REDIS_HOSTS'),
+               os.getenv('REDIS_HOSTS'),
             ],
         },
     },

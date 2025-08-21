@@ -57,16 +57,42 @@ class FaceRecognitionViewset(viewsets.ViewSet):
         images = [f for k, f in request.FILES.items() if k.startswith("image_")]
         if len(images) < 3:
             return Response({"error": "Cần ít nhất 3 ảnh để train"}, status=400)
-
         embeddings = []
 
         for img_file in images:
             # Upload lên Cloudinary
             cloud_img = upload(img_file)
-            url = cloud_img['secure_url']
+            url = cloud_img.get("secure_url")
+            if not url:
+                continue
 
+            # Extract embedding
+            embedding = extract_face_embedding(url)
+            if embedding is None:
+                continue
+
+            embeddings.append(embedding)
             # Lưu vào FaceTrainingImage
-            FaceTrainingImage.objects.create(employee=employee, image=url)
+            # Lưu từng ảnh train
+            FaceTrainingImage.objects.create(
+                employee=employee,
+                image=url,
+                embedding=embedding
+            )
+
+        if not embeddings:
+            return Response({"error": "Không lấy được embedding nào"}, status=400)
+
+        # Tính trung bình embedding cho nhân viên
+        avg_embedding = np.mean(embeddings, axis=0)
+
+        print("avg_embedding: ",avg_embedding)
+
+        FaceEmbedding.objects.update_or_create(
+            employee=employee,
+            defaults={"embedding": avg_embedding.astype(np.float32).tobytes()}
+        )
+
         return Response({"message": "Gửi ảnh thành công"}, status=200)
     
     @action(detail=False, methods=["post"], url_path="train_face_embedding")
