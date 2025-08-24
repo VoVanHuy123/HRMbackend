@@ -1,0 +1,124 @@
+# # name: Build & Deploy to Render
+
+# # on:
+# #   push:
+# #     branches:
+# #       - main  # Chạy khi push vào main
+
+# # jobs:
+# #   build-and-deploy:
+# #     runs-on: ubuntu-latest
+
+# #     steps:
+# #       # 1️⃣ Checkout source code
+# #       - name: Checkout code
+# #         uses: actions/checkout@v3
+
+# #       # 2️⃣ Set up Docker Buildx
+# #       - name: Set up Docker Buildx
+# #         uses: docker/setup-buildx-action@v2
+
+# #       # 3️⃣ Cache pip packages để build nhanh hơn
+# #       - name: Cache pip packages
+# #         uses: actions/cache@v3
+# #         with:
+# #           path: ~/.cache/pip
+# #           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+
+# #       # 4️⃣ Build Docker image
+# #       - name: Build Docker image
+# #         run: |
+# #           docker buildx build \
+# #             --tag hrmbackend:latest \
+# #             --load \
+# #             ./HRMproject
+
+# #        # 5️⃣ Trigger Render deploy via webhook
+# #       - name: Deploy to Render via Webhook
+# #         run: |
+# #           curl -X POST "https://api.render.com/deploy/srv-d2g2u0ndiees73d0ekng?key=9u0HJqTpqws"
+# name: Build, Push & Deploy to Render
+
+# on:
+#   push:
+#     branches:
+#       - main  # Khi push vào main branch
+
+# jobs:
+#   build-push-deploy:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       # 1️⃣ Checkout code
+#       - name: Checkout code
+#         uses: actions/checkout@v3
+
+#       # 2️⃣ Set up Docker Buildx
+#       - name: Set up Docker Buildx
+#         uses: docker/setup-buildx-action@v2
+
+#       # 3️⃣ Login vào Docker Hub
+#       - name: Login to Docker Hub
+#         uses: docker/login-action@v2
+#         with:
+#           username: ${{ secrets.DOCKER_USERNAME }}
+#           password: ${{ secrets.DOCKER_PASSWORD }}
+
+#       # 4️⃣ Cache pip packages (build nhanh hơn)
+#       - name: Cache pip packages
+#         uses: actions/cache@v3
+#         with:
+#           path: ~/.cache/pip
+#           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+
+#       # 5️⃣ Build Docker image
+#       - name: Build Docker image
+#         run: |
+#           docker buildx build \
+#             --tag vovanhuy123/hrmbackend:latest \
+#             ./HRMproject
+
+#       # 6️⃣ Push Docker image lên Docker Hub
+#       - name: Push Docker image
+#         run: |
+#           docker push vovanhuy123/hrmbackend:latest
+
+#       # 7️⃣ Trigger Render để pull Docker image mới
+#       - name: Trigger Render pull image via webhook
+#         run: |
+#           curl -X POST "https://api.render.com/deploy/srv-d2gkgqgdl3ps73fdm8hg?key=Am5PeLddS1A"
+
+name: Build, Push & Deploy to Render
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-push-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}  # Nên là PAT
+
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: ./HRMproject
+          push: true
+          tags: vovanhuy123/hrmbackend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trigger Render
+        run: |
+          curl -X POST "https://api.render.com/deploy/srv-d2gkgqgdl3ps73fdm8hg?key=Am5PeLddS1A" 

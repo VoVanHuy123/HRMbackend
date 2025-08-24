@@ -12,9 +12,15 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 
+import dotenv
+import sys
+import os
+# Đảm bảo .env được load
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+dotenv.load_dotenv(os.path.join(BASE_DIR, '.env'))
+ENV = os.getenv("ENV", "development")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -25,32 +31,60 @@ SECRET_KEY = 'django-insecure-=*=9$u9myke$=_)am49#j#qk29xz4y0+xk-#^^2ht%%8vta@=m
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS","localhost,127.0.0.1").split(",")
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    "http://localhost:5174"
+    "http://localhost:5174",
+    "https://hrmbackend-hlu5.onrender.com",
 ]
-
+CSRF_TRUSTED_ORIGINS = [
+    "https://hrmbackend-hlu5.onrender.com",
+    "http://localhost:5173",
+]
 
 # Application definition
 
-INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'oauth2_provider',
-    'django_mysql',
-    'drf_yasg',
-    'user',
-    'employee',
-    'timesheet',
-    'facerecognition',
-    'corsheaders',
-    'salary'
-]
+if ENV == "production": 
+    INSTALLED_APPS = [
+        'django.contrib.admin',
+        'django.contrib.auth',
+        'django.contrib.contenttypes',
+        'django.contrib.sessions',
+        'django.contrib.messages',
+        'django.contrib.staticfiles',
+        "django.contrib.postgres",
+        'django_mysql',
+        'oauth2_provider',
+        'drf_yasg',
+        'user',
+        'employee',
+        'timesheet',
+        'facerecognition',
+        'corsheaders',
+        'salary',
+        "channels",
+        "worklocation",
+    ]
+else:
+    INSTALLED_APPS = [
+        'django.contrib.admin',
+        'django.contrib.auth',
+        'django.contrib.contenttypes',
+        'django.contrib.sessions',
+        'django.contrib.messages',
+        'django.contrib.staticfiles',
+        'oauth2_provider',
+        'django_mysql',
+        'drf_yasg',
+        'user',
+        'employee',
+        'timesheet',
+        'facerecognition',
+        'corsheaders',
+        'salary',
+        "channels",
+        "worklocation",
+    ]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -83,6 +117,19 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'HRMproject.wsgi.application'
 
+# web socket
+ASGI_APPLICATION  = 'HRMproject.asgi.application'
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [
+               os.getenv('REDIS_HOSTS'),
+            ],
+        },
+    },
+}
+
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -93,21 +140,29 @@ WSGI_APPLICATION = 'HRMproject.wsgi.application'
 #         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
 # }
-import dotenv
-import sys
-import os
-# Đảm bảo .env được load
-BASE_DIR = Path(__file__).resolve().parent.parent
-dotenv.load_dotenv(os.path.join(BASE_DIR, '.env'))
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv("DB_NAME"),
-        'USER': os.getenv("DB_USER"),
-        'PASSWORD': os.getenv("DB_PASSWORD"),
-        'HOST': '',
+
+
+if ENV == "production":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_POSTGRES_NAME"),
+            "USER": os.getenv("DB_POSTGRES_USER"),
+            "PASSWORD": os.getenv("DB_POSTGRES_PASSWORD"),
+            "HOST": os.getenv("DB_POSTGRES_HOST"),
+            "PORT": os.getenv("DB_POSTGRES_PORT", "5432"),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.getenv("DB_NAME"),
+            'USER': os.getenv("DB_USER"),
+            'PASSWORD': os.getenv("DB_PASSWORD"),
+            'HOST': '',
+        }
+    }
 OAUTH2_PROVIDER = {'OAUTH2_BACKEND_CLASS': 'oauth2_provider.oauth2_backends.JSONOAuthLibCore', }
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': ('oauth2_provider.contrib.rest_framework.OAuth2Authentication',),
@@ -163,6 +218,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

@@ -40,6 +40,7 @@ class FaceLog(BaseModel):
 class FaceTrainingImage(models.Model):
     employee = models.ForeignKey("employee.Employee", on_delete=models.CASCADE, related_name="training_images")
     image = CloudinaryField('image',null=True,blank=True)
+    embedding = models.BinaryField(verbose_name="Embedding",null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -57,3 +58,12 @@ class FaceRecognitionFailure(BaseModel):
 
     def __str__(self):
         return f"Failure at {self.timestamp} - {self.reason or 'Unknown'}"
+
+class FaceTrackingSession(models.Model):
+    employee = models.ForeignKey("employee.Employee", on_delete=models.CASCADE)
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField(null=True, blank=True)  # Lúc ngừng nhận diện
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.employee} - {self.start_time} -> {self.end_time or 'Đang hoạt động'}"

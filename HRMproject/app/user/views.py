@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework import viewsets,generics,parsers
 from rest_framework.decorators import action
 from drf_yasg.utils import swagger_auto_schema
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate,get_user_model
 from oauth2_provider.models import AccessToken, RefreshToken, Application
 from oauthlib.common import generate_token
 from django.utils.timezone import now
@@ -17,6 +17,7 @@ import requests
 from user.serializers import UserSerializer,LoginSerializer,CreateUserSerializer, RefreshTokenSerializer
 from rest_framework import status
 import cloudinary.uploader
+from django.core.management import call_command
 
 
 
@@ -116,52 +117,6 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
     
     from user.serializers import RefreshTokenSerializer
 
-    # @swagger_auto_schema(
-    #     method='post',
-    #     request_body=RefreshTokenSerializer,
-    #     # responses={200: 'New access token'},
-    #     operation_description="Làm mới access token bằng refresh_token"
-    # )
-    # @action(methods=['post'], detail=False, permission_classes=[], url_path="refresh-token")
-    # def refresh_token(self, request):
-    #     refresh_token_str = request.data.get("refresh_token")
-    #     if not refresh_token_str:
-    #         return Response({"error": "Missing refresh_token"}, status=400)
-
-    #     try:
-    #         old_refresh_token = RefreshToken.objects.get(token=refresh_token_str)
-    #         user = old_refresh_token.user
-    #         application = old_refresh_token.application
-    #     except RefreshToken.DoesNotExist:
-    #         return Response({"error": "Invalid refresh_token"}, status=400)
-
-    #     # Xoá token cũ (tuỳ bạn)
-    #     AccessToken.objects.filter(user=user, application=application).delete()
-    #     RefreshToken.objects.filter(token=refresh_token_str).delete()
-
-    #     # Tạo token mới giống login
-    #     access_token = AccessToken.objects.create(
-    #         user=user,
-    #         application=application,
-    #         token=generate_token(),
-    #         expires=now() + datetime.timedelta(seconds=3600),
-    #         scope="read write"
-    #     )
-
-    #     refresh_token = RefreshToken.objects.create(
-    #         user=user,
-    #         application=application,
-    #         token=generate_token(),
-    #         access_token=access_token
-    #     )
-
-    #     return Response({
-    #         "access_token": access_token.token,
-    #         "token_type": "Bearer",
-    #         "expires_in": 3600,
-    #         "refresh_token": refresh_token.token,
-    #         "user": UserSerializer(user).data
-    #     })
     @swagger_auto_schema(
         method='post',
         request_body=RefreshTokenSerializer,
@@ -170,6 +125,7 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
     )
     @action(methods=['post'], detail=False, permission_classes=[],url_path="refresh-token")
     def refresh_token(self, request):
+        print("Request data:", request.data)
         refresh_token_str = request.data.get("refresh_token")
         if not refresh_token_str:
             return Response({"error": "Missing refresh_token"}, status=400)
@@ -208,3 +164,90 @@ class UserViewSet(viewsets.ViewSet, generics.CreateAPIView):
             "expires_in": 3600,
             "refresh_token": refresh_token.token
         })
+
+    @action(methods=['post'], detail=False, url_path="initialize_system")
+    def initialize_system(self, request):
+        """
+        API khởi tạo hệ thống:
+        - Tạo/migrate tất cả bảng database
+        - Tạo tài khoản admin mặc định
+        """
+        try:
+            # 1. Kết nối database trước khi migrate
+            from django.db import connection
+            connection.ensure_connection()
+            
+            # 2. Migrate database
+            from django.core.management import call_command
+            call_command('makemigrations', interactive=False)
+            call_command('migrate', interactive=False)
+            
+            # 3. Tạo superuser (cách an toàn hơn)
+            User = get_user_model()
+            if not User.objects.filter(username='admin').exists():
+                admin = User.objects.create_user(
+                    username='admin',
+                    email='admin@example.com',
+                    password='admin@123',
+                    first_name='Admin',
+                    last_name='System',
+                    role='admin',
+                    is_staff=True,
+                    is_superuser=True
+                )
+                return Response({
+                    'message': 'System initialized successfully',
+                    'admin_created': True,
+                    'admin_credentials': {
+                        'username': 'admin',
+                        'password': 'admin@123'  # Khuyến nghị dùng password mạnh
+                    }
+                }, status=status.HTTP_201_CREATED)
+            return Response({
+                'message': 'System already initialized',
+                'admin_created': False
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            import traceback
+            return Response({
+                'error': str(e),
+                'traceback': traceback.format_exc()
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    @action(methods=['post'], detail=False, url_path="reset_database")
+    def reset_database(self, request):
+        """
+        Xóa toàn bộ bảng + tạo lại schema mới
+        WARNING: Xóa sạch dữ liệu!
+        """
+        from django.db import connection
+        from django.core.management import call_command
+        import traceback
+
+        try:
+            # 1. Drop schema
+            with connection.cursor() as cursor:
+                cursor.execute("DROP SCHEMA public CASCADE;")
+                cursor.execute("CREATE SCHEMA public;")
+
+            # 2. Chạy migrate lại
+            call_command('migrate', interactive=False)
+
+            # 3. Tạo admin user mặc định
+            User = get_user_model()
+            if not User.objects.filter(username='admin').exists():
+                User.objects.create_superuser(
+                    username='admin',
+                    email='admin@example.com',
+                    password='admin@123'
+                )
+
+            return Response({
+                "message": "Database reset successfully. Admin user created (admin/admin@123)"
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                "error": str(e),
+                "traceback": traceback.format_exc()
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -12,56 +12,56 @@ from io import BytesIO
 def extract_face_embedding(image_or_url):
     try:
         if isinstance(image_or_url, str):
-            print("🧾 Đang tải ảnh từ URL:", image_or_url)
+            print(" Đang tải ảnh từ URL:", image_or_url)
             response = requests.get(image_or_url)
             response.raise_for_status()
 
             # Mở bằng PIL, convert về RGB
             pil_image = Image.open(BytesIO(response.content)).convert("RGB")
-            print("📷 Định dạng ảnh:", pil_image.mode)
+            print(" Định dạng ảnh:", pil_image.mode)
 
             # Chuyển sang numpy array và ép kiểu uint8
             # sau khi convert về RGB
             image = np.array(pil_image).copy()
 
             # check shape
-            print("👀 Kiểm tra shape:", image.shape, "dtype:", image.dtype)
+            print(" Kiểm tra shape:", image.shape, "dtype:", image.dtype)
 
             if image.dtype != np.uint8:
-                print("❗ Force cast dtype")
+                print(" Force cast dtype")
                 image = image.astype(np.uint8)
 
             if len(image.shape) == 2:
-                print("❗ Ảnh gray, mở rộng thành RGB")
+                print(" Ảnh gray, mở rộng thành RGB")
                 image = np.stack([image]*3, axis=-1)
             elif image.shape[2] == 4:
-                print("❗ Ảnh có alpha channel, bỏ alpha")
+                print(" Ảnh có alpha channel, bỏ alpha")
                 image = image[:, :, :3]
         elif isinstance(image_or_url, Image.Image):
-            print("🧾 Chuyển đổi từ PIL Image sang numpy array")
+            print(" Chuyển đổi từ PIL Image sang numpy array")
             image = np.array(image_or_url.convert("RGB")).astype(np.uint8).copy()
         else:
-            print("❌ Định dạng ảnh không hợp lệ")
+            print(" Định dạng ảnh không hợp lệ")
             return None
 
         # Nhận diện khuôn mặt
         face_locations = face_recognition.face_locations(image, model="hog")
-        print("🔍 Số khuôn mặt tìm thấy:", len(face_locations))
+        print(" Số khuôn mặt tìm thấy:", len(face_locations))
 
         if not face_locations or len(face_locations) == 0:
-            print("❌ Không tìm thấy khuôn mặt nào")
+            print(" Không tìm thấy khuôn mặt nào")
             return None
 
         encodings = face_recognition.face_encodings(image, known_face_locations=face_locations)
         if not encodings:
-            print("❌ Không trích xuất được embedding")
+            print(" Không trích xuất được embedding")
             return None
 
-        print("✅ Trích xuất thành công embedding")
+        print(" Trích xuất thành công embedding")
         return encodings[0]
 
     except Exception as e:
-        print(f"❌ Lỗi extract_face_embedding: {e}")
+        print(f" Lỗi extract_face_embedding: {e}")
         return None
 
 

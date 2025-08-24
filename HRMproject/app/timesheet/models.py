@@ -1,6 +1,6 @@
 from django.db import models
 from HRMproject.models import BaseModel
-from django_mysql.models import EnumField
+# from django_mysql.models import EnumField
 from datetime import datetime, timedelta
 from django.utils import timezone
 from datetime import time
@@ -19,6 +19,9 @@ class Timesheet(BaseModel):
     lunch_break = models.IntegerField(default=1)
     total_working_hours = models.FloatField(default=0.0)
     work_coefficient = models.FloatField(default=0.0)
+    is_ordinary = models.BooleanField(default=True)
+    note = models.TextField(null=True,blank=True)
+    late_minutes = models.IntegerField(default=0)
 
     # Foreign_key
     work_type = models.ForeignKey("WorkType", on_delete=models.SET_NULL, null=True, blank=True, related_name='timesheet', verbose_name="WorkType")
@@ -32,36 +35,49 @@ class Timesheet(BaseModel):
         if self.date:
             self.year = self.date.year
             self.month = self.date.month
+        # Tính số phút đi trễ
+        if self.time_in:
+            standard_time_in = time(8, 30)  # 08:30 sáng
+            if self.time_in > standard_time_in:
+                dt_standard = datetime.combine(self.date, standard_time_in)
+                dt_in = datetime.combine(self.date, self.time_in)
+                self.late_minutes = int((dt_in - dt_standard).total_seconds() / 60)
+            else:
+                self.late_minutes = 0
             
         if self.time_in and self.time_out:
-            dt_time_in = datetime.combine(self.date, self.time_in)
-            dt_time_out = datetime.combine(self.date, self.time_out)
-            
-            # Handle overnight shift
-            if dt_time_out < dt_time_in:
-                dt_time_out += timedelta(days=1)
-            
-            worked_minutes = (dt_time_out - dt_time_in).total_seconds() / 60
-            
-            # xác định 12h trưa
-            noon_time = datetime.combine(self.date, time(12, 0))
-            
-            # kiểm tra nếu ca không vắt qua buổi trưa
-            if dt_time_in >= noon_time or dt_time_out <= noon_time:
-                lunch_break_minutes = 0  # không trừ lunch
-            else:
-                lunch_break_minutes = self.lunch_break * 60
-            
-            worked_minutes -= (self.extra_break_minutes + lunch_break_minutes)
-            self.total_working_hours = round(worked_minutes / 60, 2)
+            if (self.is_ordinary):
+                dt_time_in = datetime.combine(self.date, self.time_in)
+                dt_time_out = datetime.combine(self.date, self.time_out)
+                
+                # Handle overnight shift
+                if dt_time_out < dt_time_in:
+                    dt_time_out += timedelta(days=1)
+                
+                worked_minutes = (dt_time_out - dt_time_in).total_seconds() / 60
+                
+                # xác định 12h trưa
+                noon_time = datetime.combine(self.date, time(12, 0))
+                
+                # kiểm tra nếu ca không vắt qua buổi trưa
+                if dt_time_in >= noon_time or dt_time_out <= noon_time:
+                    lunch_break_minutes = 0  # không trừ lunch
+                else:
+                    lunch_break_minutes = self.lunch_break * 60
+                
+                worked_minutes -= (self.extra_break_minutes + lunch_break_minutes)
+                self.total_working_hours = round(worked_minutes / 60, 2)
 
-            coeff = (worked_minutes / 60) / 7.5
-            if coeff > 1:
-                self.work_coefficient = 1
+                coeff = (worked_minutes / 60) / 7.5
+                if coeff > 1:
+                    self.work_coefficient = 1
+                else:
+                    self.work_coefficient = round(coeff, 4)
             else:
-                self.work_coefficient = round(coeff, 2)
+                coeff = self.total_working_hours / 7.5
+                self.work_coefficient = round(coeff, 4)
         else:
-            self.total_working_hours = 0.0
+            self.work_coefficient = 0
             
         super().save(*args, **kwargs)
 
@@ -141,7 +157,13 @@ class CommendationDiscipline(BaseModel):
     # code = models.CharField(max_length=50, unique=True, verbose_name="Record Code") # Assuming a unique code for each record
     content = models.TextField(verbose_name="Content")
     date = models.DateField(verbose_name="Date")
-    record_type = EnumField(choices=RecordType.choices, default=RecordType.COMMENDATION)
+    # record_type = EnumField(choices=RecordType.choices, default=RecordType.COMMENDATION)
+    # Dùng CharField thay vì EnumField
+    record_type = models.CharField(
+        max_length=20,
+        choices=RecordType.choices,
+        default=RecordType.COMMENDATION
+    )
     amount = models.FloatField(default=0.0)
     class Meta:
         verbose_name = "Commendation/Discipline"
@@ -161,7 +183,13 @@ class SalaryAdvance(BaseModel):
     date = models.DateField(verbose_name="Date")
     month = models.IntegerField(verbose_name="Month",null=True)
     year = models.IntegerField(verbose_name="Year",null=True)
-    status = EnumField(choices=StatusType.choices, default=StatusType.PENDING)# e.g., 'Approved', 'Pending'
+    # status = EnumField(choices=StatusType.choices, default=StatusType.PENDING)# e.g., 'Approved', 'Pending'
+    # Dùng CharField thay vì EnumField
+    status = models.CharField(
+        max_length=20,
+        choices=StatusType.choices,
+        default=StatusType.PENDING
+    )
     amount = models.FloatField(verbose_name="Amount",default=0.0)
 
     class Meta:
@@ -193,7 +221,12 @@ class AllowanceType(BaseModel):
 class LeaveRequest(BaseModel):
     content = models.TextField()
     date = models.DateField(null=False)
-    status = EnumField(choices=StatusType,default=StatusType.PENDING)
+    # status = EnumField(choices=StatusType,default=StatusType.PENDING)
+    status = models.CharField(
+        max_length=20,
+        choices=StatusType.choices,
+        default=StatusType.PENDING
+    )
     employee = models.ForeignKey("employee.Employee", on_delete=models.CASCADE, related_name="leave_requests")
     
     class Meta:

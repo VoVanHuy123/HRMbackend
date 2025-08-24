@@ -18,6 +18,13 @@ class WorkTypeserializer(serializers.ModelSerializer):
     class Meta:
         model = WorkType
         fields = ["id","name","coefficient"]
+class TimeSheetEmployeeSerializers(serializers.ModelSerializer):
+    work_type = WorkTypeserializer()
+    employee = NameEmployeeSerializer()
+    class Meta:
+        model = Timesheet
+        # fields = "__all__"
+        fields = ["id","date","employee","year","month","time_in","time_out","total_working_hours","work_coefficient","work_type"]
 class TimeSheetSerializers(serializers.ModelSerializer):
     work_type = WorkTypeserializer()
     class Meta:
@@ -35,10 +42,14 @@ class CommendationDisciplineSerializers(serializers.ModelSerializer):
     class Meta:
         model = CommendationDiscipline
         fields = ['id', 'employee', 'content', 'date', 'record_type', 'amount']
-class UpdateCommendationDisciplineSerializers(serializers.ModelSerializer):
+        extra_kwargs ={
+            "employee":{'required':False},
+        }
+class CreateCommendationDisciplineSerializers(serializers.ModelSerializer):
     class Meta:
         model = CommendationDiscipline
-        fields = ['id', 'content', 'date', 'record_type', 'amount']
+        fields = ['id',"employee", 'content', 'date', 'record_type', 'amount']
+
 class LeaveRequestSerializers(serializers.ModelSerializer):
     employee = NameEmployeeSerializer()
     class Meta:
@@ -47,7 +58,7 @@ class LeaveRequestSerializers(serializers.ModelSerializer):
 class CreateLeaveRequestSerializers(serializers.ModelSerializer):
     class Meta:
         model = LeaveRequest
-        fields = ['id','content','date','employee']
+        fields = ['id','content','date','employee',"status"]
 class ShifTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShiftType

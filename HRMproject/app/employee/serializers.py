@@ -6,8 +6,13 @@ class EmployeeSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
             data = super().to_representation(instance)
 
-            data['photo'] = instance.photo.url if instance.photo else ''
-
+            # Nếu instance.photo là object Cloudinary
+            if hasattr(instance.photo, 'url'):
+                data['photo'] = instance.photo.url
+            else:
+                # Nếu là string (link cloudinary) hoặc None
+                data['photo'] = instance.photo if instance.photo else ''
+            
             return data
     class Meta:
         model = Employee
@@ -55,7 +60,14 @@ class UpdateEmployeeSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
             data = super().to_representation(instance)
 
-            data['photo'] = instance.photo.url if instance.photo else ''
+            photo = instance.photo
+
+            if not photo:
+                data['photo'] = ''
+            elif hasattr(photo, 'url'):
+                data['photo'] = photo.url   # Trường hợp Cloudinary object
+            else:
+                data['photo'] = str(photo)  # Trường hợp đã là string URL
 
             return data
     class Meta:
@@ -88,8 +100,13 @@ class ListEmployeeSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
             data = super().to_representation(instance)
 
-            data['photo'] = instance.photo.url if instance.photo else ''
-
+            # Nếu instance.photo là object Cloudinary
+            if hasattr(instance.photo, 'url'):
+                data['photo'] = instance.photo.url
+            else:
+                # Nếu là string (link cloudinary) hoặc None
+                data['photo'] = instance.photo if instance.photo else ''
+            
             return data
     class Meta:
         model = Employee
@@ -125,7 +142,10 @@ class DepartmentSerializer(serializers.ModelSerializer):
 class DivisionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Division
-        fields = ["id","name",]
+        fields = ["id","name","department"]
+        extra_kwargs ={
+            "department":{'required':False},
+        }
 class QualificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Qualification
