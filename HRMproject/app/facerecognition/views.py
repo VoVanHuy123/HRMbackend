@@ -4,12 +4,13 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from cloudinary.uploader import upload
 import numpy as np
+import cv2
 from datetime import datetime, date
 from django.utils import timezone
 import io
 from PIL import Image
 import base64
-from services.face_reco import calculate_average_embedding,extract_face_embedding,cosine_similarity
+from services.face_reco import calculate_average_embedding,extract_face_embedding,cosine_similarity,add_overlay_to_face
 
 from user.permisions import IsAdmin
 
@@ -37,11 +38,14 @@ from timesheet.serializers import (
     OverTimeSerializers,
     TimeSheetEmployeeSerializers
 )
+import os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # trỏ đến HRMPROJECT/app
+hat_path = os.path.join(BASE_DIR, "assets", "img", "hat.png")
 
 class FaceRecognitionViewset(viewsets.ViewSet):
     permission_classes = [IsAdmin]
     def get_permissions(self):
-        if(self.action in ["VerifyIdentity","OvertimeVerifyIdentity",'verify_face_tracking_sessions']):
+        if(self.action in ["VerifyIdentity","OvertimeVerifyIdentity",'verify_face_tracking_sessions','VerifyIdentityTest']):
             return [permissions.IsAuthenticated()]
         return super().get_permissions()
     @action(detail=False,methods=["post"], url_path="post_face_images")
@@ -59,34 +63,70 @@ class FaceRecognitionViewset(viewsets.ViewSet):
             return Response({"error": "Cần ít nhất 3 ảnh để train"}, status=400)
         embeddings = []
 
+
+
+
         for img_file in images:
-            # Upload lên Cloudinary
-            cloud_img = upload(img_file)
+
+            # ---- Đọc file thành bytes ngay từ đầu ----
+            file_bytes = img_file.read()
+            np_bytes = np.frombuffer(file_bytes, np.uint8)
+
+            # 1. Upload lên Cloudinary từ bytes
+            bio1 = io.BytesIO(file_bytes)
+            bio1.name = img_file.name
+            cloud_img = upload(bio1, resource_type="image")
             url = cloud_img.get("secure_url")
             if not url:
                 continue
 
-            # Extract embedding
+            # 2. Extract embedding
             embedding = extract_face_embedding(url)
             if embedding is None:
                 continue
-
             embeddings.append(embedding)
-            # Lưu vào FaceTrainingImage
-            # Lưu từng ảnh train
             FaceTrainingImage.objects.create(
                 employee=employee,
                 image=url,
-                embedding=embedding
+                embedding=embedding.astype(np.float32).tobytes()
             )
 
+            # 3. Decode sang numpy cho OpenCV
+            img_np = cv2.imdecode(np_bytes, cv2.IMREAD_COLOR)
+
+            # 4. Thêm phụ kiện
+            result = add_overlay_to_face(
+                face_img=img_np,
+                # overlay_img_path=hat_path,
+                scale=0.8,
+                x_offset_extra=0,
+                y_offset_extra=15,
+                y_ratio=0.8
+            )
+
+            bio2 = result
+            bio2.name = "accessory.jpg"
+
+            cloud_img2 = upload(bio2, resource_type="image")
+            url2 = cloud_img2.get("secure_url")
+            embedding2 = extract_face_embedding(url2)
+            if embedding2 is None:
+                continue
+            embeddings.append(embedding2)
+            FaceTrainingImage.objects.create(
+                employee=employee,
+                image=url,
+                embedding=embedding2.astype(np.float32).tobytes()
+            )
+
+
+          
         if not embeddings:
             return Response({"error": "Không lấy được embedding nào"}, status=400)
 
         # Tính trung bình embedding cho nhân viên
         avg_embedding = np.mean(embeddings, axis=0)
 
-        print("avg_embedding: ",avg_embedding)
 
         FaceEmbedding.objects.update_or_create(
             employee=employee,
@@ -119,8 +159,6 @@ class FaceRecognitionViewset(viewsets.ViewSet):
         return Response({"message": "Đã huấn luyện và lưu embedding thành công"}, status=200)
 
     
-
-
     @action(detail=False, methods=["post"], url_path="verify_identity")
     def VerifyIdentity(self, request, *args, **kwargs):
         employee_id = request.data.get("employee_id")
@@ -175,9 +213,11 @@ class FaceRecognitionViewset(viewsets.ViewSet):
                 note="Có thể do ảnh không có khuôn mặt rõ"
             )
             return Response({"error": "Không thể trích xuất embedding"}, status=400)
+        print("vào ")
 
         # So sánh với embedding đã lưu
-        all_embeddings = FaceEmbedding.objects.select_related("employee").all()
+        # all_embeddings = FaceEmbedding.objects.select_related("employee").all()
+        all_embeddings = FaceTrainingImage.objects.select_related("employee").all()
         if not all_embeddings:
             return Response({"error": "Không có dữ liệu embedding"}, status=404)
 
@@ -190,10 +230,11 @@ class FaceRecognitionViewset(viewsets.ViewSet):
             if db_embedding.shape != embedding.shape:
                 continue
             score = cosine_similarity(embedding, db_embedding)
+            print("score: ",score)
             if score > best_score:
                 best_score = score
                 best_match = fe.employee
-
+        
         if best_score >= threshold:
             # ✅ MATCHED — Ghi vào FaceLog
             if(employee.id == best_match.id):
@@ -243,11 +284,286 @@ class FaceRecognitionViewset(viewsets.ViewSet):
         else:
             # ❌ KHÔNG MATCH — Ghi vào FaceRecognitionFailure
             FaceRecognitionFailure.objects.create(
-                image=image_file,
+                image=image_url,
                 reason="Không khớp với nhân viên nào",
                 note=f"Độ tương đồng cao nhất: {round(float(best_score), 4)}"
             )
             return Response({"error": "Không xác định được danh tính"}, status=404)
+
+
+#  test api
+    @action(detail=False, methods=["post"], url_path="verify_identity_test")
+    def VerifyIdentityTest(self, request, *args, **kwargs):
+        employee_id = request.data.get("employee_id")
+        if not employee_id:
+            return Response({"error": "Thiếu employee_id"}, status=400)
+
+        employee = Employee.objects.filter(id=employee_id).first()
+        if not employee:
+            return Response({"error": "Không tìm thấy nhân viên"}, status=404)
+        
+        image_file = request.FILES.get("image")
+        if not image_file:
+            return Response({"error": "Thiếu ảnh"}, status=400)
+
+        # Upload ảnh lên Cloudinary
+        cloud_img = upload(image_file)
+        image_url = cloud_img['secure_url']
+
+        # Trích xuất embedding từ ảnh
+        embedding = extract_face_embedding(image_url)
+        if embedding is None:
+            return Response({"error": "Không thể trích xuất embedding"}, status=400)
+
+        # So sánh với embedding đã lưu
+        # all_embeddings = FaceEmbedding.objects.select_related("employee").all()
+        all_embeddings = FaceTrainingImage.objects.select_related("employee").all()
+        if not all_embeddings:
+            return Response({"error": "Không có dữ liệu embedding"}, status=404)
+
+        best_match = None
+        best_score = -1
+        image_return= ""
+        threshold = 0.7
+
+        for fe in all_embeddings:
+            db_embedding = np.frombuffer(fe.embedding, dtype=np.float32)
+            if db_embedding.shape != embedding.shape:
+                continue
+            score = cosine_similarity(embedding, db_embedding)
+            print("score: ",score)
+            if score > best_score:
+                best_score = score
+                image_return = str(fe.image)
+                best_match = fe.employee
+            
+        return Response({
+                "message": "Xác nhận thành công",
+                "employee_id": best_match.id,
+                "employee_name": f"{best_match.first_name} {best_match.last_name}",
+                "similarity": round(float(best_score), 4),
+                "image_send": image_url,
+                "image_return":image_return
+                # "timesheet": TimeSheetSerializers(timesheet).data,
+                # "faceImages": [*images, image_url]
+            })
+        
+        # if best_score >= threshold:
+        #     # ✅ MATCHED — Ghi vào FaceLog
+        #     if(employee.id == best_match.id):
+        #         FaceLog.objects.create(
+        #             employee=best_match,
+        #             is_matched=True,
+        #             image=image_url,
+        #             confidence_score=round(float(best_score), 4),
+        #             note="Xác thực thành công"
+        #         )
+
+
+        #         # Cập nhật hoặc tạo timesheet
+        #         now_time = datetime.now().time()
+        #         if not timesheet:
+        #             timesheet=Timesheet.objects.create(employee=employee, date=today, time_in=now_time,work_type=work_type)
+        #         else:
+        #             timesheet.time_out = now_time
+        #             timesheet.save()
+                
+
+        #         return Response({
+        #             "message": "Xác nhận thành công",
+        #             "employee_id": best_match.id,
+        #             "employee_name": f"{best_match.first_name} {best_match.last_name}",
+        #             "similarity": round(float(best_score), 4),
+        #             "timesheet": TimeSheetSerializers(timesheet).data,
+        #             "faceImages": [*images, image_url]
+        #         })
+        #     else:
+                
+        #         FaceLog.objects.create(
+        #             employee=employee,
+        #             is_matched=False,
+        #             image=image_url,
+        #             confidence_score=round(float(best_score), 4),
+        #             note=f"Xác thực thất bại (nhận diện thành nhân viên {employee.first_name} {employee.last_name})"
+        #         )
+        #         return Response({
+        #             "message": "Xác nhận thất bại",
+        #             # "employee_id": best_match.id,
+        #             # "employee_name": f"{best_match.first_name} {best_match.last_name}",
+        #             "similarity": round(float(best_score), 4),
+        #             "timesheet": TimeSheetSerializers(timesheet).data,
+        #             "faceImages": [*images, image_url]
+        #         })
+        # else:
+        #     # ❌ KHÔNG MATCH — Ghi vào FaceRecognitionFailure
+        #     FaceRecognitionFailure.objects.create(
+        #         image=image_url,
+        #         reason="Không khớp với nhân viên nào",
+        #         note=f"Độ tương đồng cao nhất: {round(float(best_score), 4)}"
+        #     )
+        #     return Response({"error": "Không xác định được danh tính"}, status=404)
+    @action(detail=False, methods=["get"], url_path="test")
+    def test_get_face_trainnig_embeding(self,request):
+        embeddings = []
+        all_embeddings = FaceTrainingImage.objects.select_related("employee").all()
+        if not all_embeddings:
+            return Response({"error": "Không có dữ liệu embedding"}, status=404)
+
+        best_match = None
+        best_score = -1
+        threshold = 0.7
+        embedding = extract_face_embedding("https://res.cloudinary.com/dnzjjdg0v/image/upload/v1755486225/eemgovs5wwhy5bwkd3am.jpg")
+        print("embedding shape:", None if embedding is None else embedding.shape)
+
+        for fe in all_embeddings:
+            db_embedding = np.frombuffer(fe.embedding, dtype=np.float32)
+            print("db shape:", db_embedding.shape)
+
+            if embedding is None:
+                print("❌ Không tạo được embedding từ ảnh test")
+                continue
+
+            if db_embedding.shape != embedding.shape:
+                print("❌ Shape khác nhau, bỏ qua")
+                continue
+
+            score = cosine_similarity(embedding, db_embedding)
+            embeddings.append(score)
+            print("score: ",score)
+            if score > best_score:
+                best_score = score
+                best_match = fe.employee
+
+
+        return Response({"embeddings":embeddings},200)
+
+    # @action(detail=False, methods=["post"], url_path="verify_identity")
+    # def VerifyIdentity(self, request, *args, **kwargs):
+        # employee_id = request.data.get("employee_id")
+        # if not employee_id:
+        #     return Response({"error": "Thiếu employee_id"}, status=400)
+
+        # employee = Employee.objects.filter(id=employee_id).first()
+        # if not employee:
+        #     return Response({"error": "Không tìm thấy nhân viên"}, status=404)
+        
+        # work_type_id = request.data.get("work_type_id")
+        # if not work_type_id:
+        #     return Response({"error": "Thiếu work_type_id"}, status=400)
+        # work_type = WorkType.objects.filter(id=work_type_id).first()
+        
+        # today = date.today()
+        
+        # facelogs = FaceLog.objects.filter(
+        #     employee=employee,
+        #     timestamp__date=today,
+        #     is_matched=True
+        # ).order_by("timestamp")  # để ảnh vào trước ra sau
+
+        # images = [log.image.url if log.image else None for log in facelogs]
+
+        # timesheet = Timesheet.objects.filter(employee=employee, date=today).first()
+        # if timesheet and timesheet.time_out:
+        #         # Đã chấm công rồi => không cập nhật gì
+        #         return Response({
+        #             "message": "Nhân viên đã chấm công xong hôm nay",
+        #             "employee_id": employee.id,
+        #             "employee_name": f"{employee.first_name} {employee.last_name}",
+        #             "timesheet": TimeSheetSerializers(timesheet).data,
+        #             "faceImages" : images
+        #         })
+        
+
+        # image_file = request.FILES.get("image")
+        # if not image_file:
+        #     return Response({"error": "Thiếu ảnh"}, status=400)
+
+        # # Upload ảnh lên Cloudinary
+        # cloud_img = upload(image_file)
+        # image_url = cloud_img['secure_url']
+
+        # # Trích xuất embedding từ ảnh
+        # embedding = extract_face_embedding(image_url)
+        # if embedding is None:
+        #     FaceRecognitionFailure.objects.create(
+        #         image=image_file,
+        #         reason="Không thể trích xuất embedding",
+        #         note="Có thể do ảnh không có khuôn mặt rõ"
+        #     )
+        #     return Response({"error": "Không thể trích xuất embedding"}, status=400)
+
+        # # So sánh với embedding đã lưu
+        # all_embeddings = FaceEmbedding.objects.select_related("employee").all()
+        # if not all_embeddings:
+        #     return Response({"error": "Không có dữ liệu embedding"}, status=404)
+
+        # best_match = None
+        # best_score = -1
+        # threshold = 0.7
+
+        # for fe in all_embeddings:
+        #     db_embedding = np.frombuffer(fe.embedding, dtype=np.float32)
+        #     if db_embedding.shape != embedding.shape:
+        #         continue
+        #     score = cosine_similarity(embedding, db_embedding)
+        #     if score > best_score:
+        #         best_score = score
+        #         best_match = fe.employee
+
+        # if best_score >= threshold:
+        #     # ✅ MATCHED — Ghi vào FaceLog
+        #     if(employee.id == best_match.id):
+        #         FaceLog.objects.create(
+        #             employee=best_match,
+        #             is_matched=True,
+        #             image=image_url,
+        #             confidence_score=round(float(best_score), 4),
+        #             note="Xác thực thành công"
+        #         )
+
+
+        #         # Cập nhật hoặc tạo timesheet
+        #         now_time = datetime.now().time()
+        #         if not timesheet:
+        #             timesheet=Timesheet.objects.create(employee=employee, date=today, time_in=now_time,work_type=work_type)
+        #         else:
+        #             timesheet.time_out = now_time
+        #             timesheet.save()
+                
+
+        #         return Response({
+        #             "message": "Xác nhận thành công",
+        #             "employee_id": best_match.id,
+        #             "employee_name": f"{best_match.first_name} {best_match.last_name}",
+        #             "similarity": round(float(best_score), 4),
+        #             "timesheet": TimeSheetSerializers(timesheet).data,
+        #             "faceImages": [*images, image_url]
+        #         })
+        #     else:
+                
+        #         FaceLog.objects.create(
+        #             employee=employee,
+        #             is_matched=False,
+        #             image=image_url,
+        #             confidence_score=round(float(best_score), 4),
+        #             note=f"Xác thực thất bại (nhận diện thành nhân viên {employee.first_name} {employee.last_name})"
+        #         )
+        #         return Response({
+        #             "message": "Xác nhận thất bại",
+        #             # "employee_id": best_match.id,
+        #             # "employee_name": f"{best_match.first_name} {best_match.last_name}",
+        #             "similarity": round(float(best_score), 4),
+        #             "timesheet": TimeSheetSerializers(timesheet).data,
+        #             "faceImages": [*images, image_url]
+        #         })
+        # else:
+        #     # ❌ KHÔNG MATCH — Ghi vào FaceRecognitionFailure
+        #     FaceRecognitionFailure.objects.create(
+        #         image=image_file,
+        #         reason="Không khớp với nhân viên nào",
+        #         note=f"Độ tương đồng cao nhất: {round(float(best_score), 4)}"
+        #     )
+        #     return Response({"error": "Không xác định được danh tính"}, status=404)
         
     @action(detail=False, methods=["post"], url_path="overtime_verify_identity")
     def OvertimeVerifyIdentity(self, request, *args, **kwargs):
@@ -305,7 +621,7 @@ class FaceRecognitionViewset(viewsets.ViewSet):
             return Response({"error": "Không thể trích xuất embedding"}, status=400)
 
         # So sánh với embedding đã lưu
-        all_embeddings = FaceEmbedding.objects.select_related("employee").all()
+        all_embeddings = FaceTrainingImage.objects.select_related("employee").all()
         if not all_embeddings:
             return Response({"error": "Không có dữ liệu embedding"}, status=404)
 

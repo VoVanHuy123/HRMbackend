@@ -4,13 +4,13 @@ from HRMproject.models import BaseModel
 from django.utils import timezone
 from timesheet.models import StatusType
 # from django_mysql.models import EnumField
-from datetime import datetime
+from datetime import datetime,date
 
 # Create your models here.
 
 class WorkLocation(BaseModel):
     employee = models.ForeignKey("employee.Employee", on_delete=models.CASCADE, related_name='work_locations', verbose_name="Employee")
-    date = models.DateField(verbose_name="Date", null=True, default=datetime.now)
+    date = models.DateField(verbose_name="Date", null=True, default=date.today)
     name = models.CharField(max_length=255,null=True,blank=True)  # Tên địa điểm (VD: Văn phòng HCM)
     description = models.CharField(max_length=255,null=True,blank=True)  # Tên địa điểm (VD: Văn phòng HCM)
     latitude = models.DecimalField(max_digits=9, decimal_places=6)  # Vĩ độ

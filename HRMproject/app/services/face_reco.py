@@ -1,12 +1,18 @@
 import numpy as np
+import mediapipe as mp
 # from services.face_reco import extract_face_embedding
 from facerecognition.models import FaceTrainingImage
 import face_recognition
-import numpy as np
 from PIL import Image
 import requests
 from io import BytesIO
+import cv2
+import os
+import io
 
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # trỏ đến HRMPROJECT/app
+hat_path = os.path.join(BASE_DIR, "assets", "img", "hat.png")
 
 
 def extract_face_embedding(image_or_url):
@@ -103,12 +109,76 @@ def cosine_similarity(a, b):
         return 0.0
     return dot_product / (norm_a * norm_b)
 
-# if __name__ == "__main__":
-#     # Ảnh demo có khuôn mặt rõ ràng
-#     test_image_url = "https://raw.githubusercontent.com/ageitgey/face_recognition/master/examples/obama.jpg"
-#     embedding = extract_face_embedding(test_image_url)
 
-#     if embedding is not None:
-#         print("👉 Kết quả embedding (first 5 dims):", embedding[:5])
-#     else:
-#         print("⚠️ Test thất bại: Không có embedding.")
+
+hat_img = cv2.imread(hat_path, cv2.IMREAD_UNCHANGED)
+
+def add_overlay_to_face(face_img, overlay_img=hat_img, scale=1.0, x_offset_extra=0, y_offset_extra=0, y_ratio=0.8):
+    """
+    face_img_bytes: bytes ảnh gốc
+    overlay_img_path: đường dẫn ảnh PNG overlay (có alpha)
+    scale: tỉ lệ thay đổi kích thước overlay
+    x_offset_extra, y_offset_extra: offset thêm để điều chỉnh vị trí overlay
+    y_ratio: vị trí vertical so với eye_center (0.8 cho mũ, 1.0 cho kính, v.v)
+    
+    Trả về: BytesIO ảnh PNG kết quả
+    """
+    overlay = cv2.imread(hat_path, cv2.IMREAD_UNCHANGED)
+    print(overlay.shape, overlay.dtype)
+    # # Decode bytes ảnh
+    # nparr = np.frombuffer(face_img_bytes, np.uint8)
+    # face_img = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
+    # Chuyển sang RGB cho face_recognition
+    face_img_rgb = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
+
+    # Detect landmarks
+    face_landmarks_list = face_recognition.face_landmarks(face_img_rgb)
+    if not face_landmarks_list:
+        return None  # Không tìm thấy khuôn mặt
+
+    landmarks = face_landmarks_list[0]
+    left_eye = landmarks['left_eye']
+    right_eye = landmarks['right_eye']
+
+    # Tính trung tâm 2 mắt
+    left_center = np.mean(left_eye, axis=0)
+    right_center = np.mean(right_eye, axis=0)
+    eye_center = ((left_center[0] + right_center[0]) / 2,
+                  (left_center[1] + right_center[1]) / 2)
+    eye_center = tuple(map(int, eye_center))
+
+    print("Eye center:", eye_center, "Overlay size:", overlay.shape)
+    # Đọc ảnh overlay
+    overlay = overlay_img
+    if overlay.shape[2] != 4:
+        raise ValueError("Ảnh overlay phải có alpha channel (PNG)")
+
+    # Resize overlay
+    new_w = int(overlay.shape[1] * scale)
+    new_h = int(overlay.shape[0] * scale)
+    overlay = cv2.resize(overlay, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+    # Tính vị trí overlay
+    x_offset = int(eye_center[0] - new_w / 2 + x_offset_extra)
+    y_offset = int(eye_center[1] - new_h * y_ratio + y_offset_extra)
+
+    # Giới hạn biên ảnh
+    x1, y1 = max(x_offset, 0), max(y_offset, 0)
+    x2, y2 = min(x_offset + new_w, face_img.shape[1]), min(y_offset + new_h, face_img.shape[0])
+
+    overlay_x1 = max(0, -x_offset)
+    overlay_y1 = max(0, -y_offset)
+    overlay_x2 = overlay_x1 + (x2 - x1)
+    overlay_y2 = overlay_y1 + (y2 - y1)
+
+    # Chèn overlay với alpha
+    alpha_overlay = overlay[overlay_y1:overlay_y2, overlay_x1:overlay_x2, 3] / 255.0
+    alpha_face = 1.0 - alpha_overlay
+
+    for c in range(0, 3):
+        face_img[y1:y2, x1:x2, c] = (alpha_overlay * overlay[overlay_y1:overlay_y2, overlay_x1:overlay_x2, c] +
+                                     alpha_face * face_img[y1:y2, x1:x2, c])
+
+    # Encode lại ảnh thành BytesIO
+    _, buffer = cv2.imencode(".png", face_img)
+    return io.BytesIO(buffer)
