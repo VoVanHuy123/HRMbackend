@@ -17,6 +17,13 @@ from timesheet.models import Timesheet
 from facerecognition.models import FaceEmbedding,FaceTrackingSession
 from datetime import datetime
 
+import insightface
+from insightface.app import FaceAnalysis
+
+# load model khi server start
+app = FaceAnalysis(providers=['CPUExecutionProvider'])  # dùng CPU
+app.prepare(ctx_id=0, det_size=(640, 640))
+
 class FaceTrackingConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.user = self.scope['user']
@@ -69,22 +76,96 @@ class FaceTrackingConsumer(AsyncWebsocketConsumer):
         except ObjectDoesNotExist:
             return None
 
+    # async def process_frame(self, frame_data, timestamp):
+    #     try:
+    #         # tách phần header và phần dữ liệu base64.
+    #         format, imgstr = frame_data.split(';base64,')
+    #         # giải mã về bytes. 
+    #         image_data = base64.b64decode(imgstr)
+
+    #         # mở ảnh từ bytes -> chuyển sang numpy array để dùng với face_recognition.
+    #         image = np.array(Image.open(io.BytesIO(image_data)))
+    #         # image = np.array(Image.open(io.BytesIO(image_data)).convert("RGB"))
+
+    #         # trả về danh sách các bounding box dạng (top, right, bottom, left) (pixel).
+    #         loop = asyncio.get_running_loop()
+    #         face_locations = await loop.run_in_executor(None, lambda: face_recognition.face_locations(image))   
+    #         # face_locations = face_recognition.face_locations(image)
+    #         if not face_locations:
+    #             await self.send(json.dumps({
+    #                 'status': 'fail',
+    #                 'message': 'Không tìm thấy khuôn mặt',
+    #                 'timestamp': timestamp
+    #             }))
+    #             return
+
+    #         try:
+    #             # Lấy embedding đã lưu của nhân viên
+                
+    #             face_embedding = await sync_to_async(FaceEmbedding.objects.get)(employee=self.employee)
+    #             # đưa bytes thành vector float32 (thường là 128 chiều của dlib/face_recognition).
+    #             known_embedding = np.frombuffer(face_embedding.embedding, dtype=np.float32)
+    #         except FaceEmbedding.DoesNotExist:
+    #             await self.send(json.dumps({
+    #                 'status': 'fail',
+    #                 'message': 'Chưa có dữ liệu huấn luyện cho nhân viên này',
+    #                 'timestamp': timestamp
+    #             }))
+    #             return
+
+    #         # Tính face embedding cho các khuôn mặt tìm được, ở đây lấy [0] (khuôn mặt đầu tiên).
+    #         encodings = await loop.run_in_executor(None, lambda: face_recognition.face_encodings(image, known_face_locations=face_locations))
+    #         current_embedding = encodings[0]
+    #         # current_embedding = face_recognition.face_encodings(image, known_face_locations=face_locations)[0]
+    #         matches = face_recognition.compare_faces([known_embedding], current_embedding)
+    #         # là khoảng cách (càng nhỏ càng giống).
+    #         face_distance = face_recognition.face_distance([known_embedding], current_embedding)
+
+
+    #         confidence = 1 - face_distance[0]
+            
+    #         # (mặc định tolerance=0.6) trả về True nếu khoảng cách ≤ 0.6.
+    #         if confidence > 0.6:
+    #             await self.start_timesheet()
+    #             await self.start_tracking_session() # tạo face_tracking_session 
+    #             await self.send(json.dumps({
+    #                 'status': 'success',
+    #                 'matched': bool(matches[0]),
+    #                 'confidence': float(confidence),
+    #                 'timestamp': timestamp,
+    #                 "employee_name": f"{self.employee.first_name} {self.employee.last_name}",
+    #                 "face_location": face_locations
+    #             }))
+    #         else:
+    #             await self.stop_tracking_session() # đóng face_tracking_session tồn tại
+    #             await self.send(json.dumps({
+    #                 'status': 'fail',
+    #                 'matched': bool(matches[0]),
+    #                 'confidence': float(confidence),
+    #                 'timestamp': timestamp,
+    #                 "face_location": face_locations
+    #             }))
+
+    #     except Exception as e:
+    #         await self.send(json.dumps({
+    #             'status': 'error',
+    #             'message': str(e),
+    #             'timestamp': timestamp
+    #         }))
+    #         raise e
+
     async def process_frame(self, frame_data, timestamp):
         try:
-            # tách phần header và phần dữ liệu base64.
+            # Tách base64
             format, imgstr = frame_data.split(';base64,')
-            # giải mã về bytes. 
             image_data = base64.b64decode(imgstr)
+            image = np.array(Image.open(io.BytesIO(image_data)).convert("RGB"))
 
-            # mở ảnh từ bytes -> chuyển sang numpy array để dùng với face_recognition.
-            image = np.array(Image.open(io.BytesIO(image_data)))
-            # image = np.array(Image.open(io.BytesIO(image_data)).convert("RGB"))
-
-            # trả về danh sách các bounding box dạng (top, right, bottom, left) (pixel).
             loop = asyncio.get_running_loop()
-            face_locations = await loop.run_in_executor(None, lambda: face_recognition.face_locations(image))   
-            # face_locations = face_recognition.face_locations(image)
-            if not face_locations:
+            # chạy insightface trong executor (vì onnxruntime khá nặng)
+            faces = await loop.run_in_executor(None, lambda: app.get(image))
+
+            if not faces:
                 await self.send(json.dumps({
                     'status': 'fail',
                     'message': 'Không tìm thấy khuôn mặt',
@@ -92,11 +173,13 @@ class FaceTrackingConsumer(AsyncWebsocketConsumer):
                 }))
                 return
 
+            # lấy khuôn mặt lớn nhất
+            face = max(faces, key=lambda f: f.bbox[2] - f.bbox[0])
+            current_embedding = face.normed_embedding.astype(np.float32)
+
             try:
-                # Lấy embedding đã lưu của nhân viên
-                
+                # Lấy embedding đã lưu
                 face_embedding = await sync_to_async(FaceEmbedding.objects.get)(employee=self.employee)
-                # đưa bytes thành vector float32 (thường là 128 chiều của dlib/face_recognition).
                 known_embedding = np.frombuffer(face_embedding.embedding, dtype=np.float32)
             except FaceEmbedding.DoesNotExist:
                 await self.send(json.dumps({
@@ -106,37 +189,31 @@ class FaceTrackingConsumer(AsyncWebsocketConsumer):
                 }))
                 return
 
-            # Tính face embedding cho các khuôn mặt tìm được, ở đây lấy [0] (khuôn mặt đầu tiên).
-            encodings = await loop.run_in_executor(None, lambda: face_recognition.face_encodings(image, known_face_locations=face_locations))
-            current_embedding = encodings[0]
-            # current_embedding = face_recognition.face_encodings(image, known_face_locations=face_locations)[0]
-            matches = face_recognition.compare_faces([known_embedding], current_embedding)
-            # là khoảng cách (càng nhỏ càng giống).
-            face_distance = face_recognition.face_distance([known_embedding], current_embedding)
+            # Tính cosine similarity
+            similarity = float(np.dot(known_embedding, current_embedding))
+            confidence = (similarity + 1) / 2  # scale về [0,1]
 
-
-            confidence = 1 - face_distance[0]
-            
-            # (mặc định tolerance=0.6) trả về True nếu khoảng cách ≤ 0.6.
-            if confidence > 0.6:
+            if similarity > 0.4:  # ngưỡng thường ~0.3–0.4 cho ArcFace
                 await self.start_timesheet()
-                await self.start_tracking_session() # tạo face_tracking_session 
+                await self.start_tracking_session()
                 await self.send(json.dumps({
                     'status': 'success',
-                    'matched': bool(matches[0]),
-                    'confidence': float(confidence),
+                    'matched': True,
+                    'confidence': confidence,
+                    'similarity': similarity,
                     'timestamp': timestamp,
                     "employee_name": f"{self.employee.first_name} {self.employee.last_name}",
-                    "face_location": face_locations
+                    "face_location": face.bbox.tolist()
                 }))
             else:
-                await self.stop_tracking_session() # đóng face_tracking_session tồn tại
+                await self.stop_tracking_session()
                 await self.send(json.dumps({
                     'status': 'fail',
-                    'matched': bool(matches[0]),
-                    'confidence': float(confidence),
+                    'matched': False,
+                    'confidence': confidence,
+                    'similarity': similarity,
                     'timestamp': timestamp,
-                    "face_location": face_locations
+                    "face_location": face.bbox.tolist()
                 }))
 
         except Exception as e:
@@ -146,6 +223,11 @@ class FaceTrackingConsumer(AsyncWebsocketConsumer):
                 'timestamp': timestamp
             }))
             raise e
+
+
+
+
+
     @sync_to_async
     def start_tracking_session(self):
         """Tạo session mới nếu chưa có."""
